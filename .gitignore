@@ -9,3 +9,8 @@ venv/
 node_modules/
 .next/
 backend/.env 
+
+
+
+#C:\MIRAI LABS\BSDpoc\backend>  uvicorn app.main:app --reload  
+#C:\MIRAI LABS\BSDpoc\frontend> npm run dev

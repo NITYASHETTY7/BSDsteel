@@ -29,13 +29,13 @@ export default function Topbar() {
   const pageName = Object.entries(pageNames).find(([key]) => pathname.startsWith(key))?.[1] || 'BSD Steel';
 
   const notifications = [
-    { id: 1, text: 'Invoice #INV-1042 is overdue', time: '2h ago', dot: 'bg-critical' },
+    { id: 1, text: 'Larsen & Toubro Ltd overdue balance: ₹2,40,000', time: '2h ago', dot: 'bg-critical' },
     { id: 2, text: 'New payment received from Acme Corp', time: '4h ago', dot: 'bg-[#3D7A6B]' },
     { id: 3, text: 'Stock low on HRC-1.6-1250', time: '1d ago', dot: 'bg-warning' },
   ];
 
   return (
-    <header className="h-[57px] bg-panel border-b border-border flex items-center justify-between px-6 shrink-0 z-30 relative">
+    <header className="h-[57px] bg-panel border-b border-border flex items-center justify-between px-6 shrink-0 z-30 relative print:hidden">
       {/* Left: Page Name */}
       <div className="flex items-center gap-4">
         <span className="text-text-primary font-display font-bold text-sm uppercase tracking-widest">{pageName}</span>

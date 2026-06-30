@@ -5,6 +5,7 @@ import AppShell from "@/components/AppShell";
 import AuthGuard from "@/components/AuthGuard";
 import Providers from "@/components/Providers";
 import ThemeProvider from "@/components/ThemeProvider";
+import { Toaster } from "react-hot-toast";
 
 const oswald = Oswald({
   variable: "--font-display",
@@ -41,6 +42,7 @@ export default function RootLayout({
             </AuthGuard>
           </Providers>
         </ThemeProvider>
+        <Toaster position="bottom-right" toastOptions={{ className: "font-body text-sm font-semibold rounded-xl bg-panel border border-border text-text-primary shadow-2xl" }} />
       </body>
     </html>
   );

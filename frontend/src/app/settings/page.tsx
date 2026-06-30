@@ -9,7 +9,7 @@ import { useAuthStore, Role } from "@/store/authStore";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("Profile");
-  const { user, logout, updateUser } = useAuthStore();
+  const { user, logout, updateUser, mfaEnabled, sessionTimeout: storeSessionTimeout, setSecuritySettings, inventorySettings, setInventorySettings } = useAuthStore();
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -29,10 +29,10 @@ export default function SettingsPage() {
   const [defaultOutwardWH, setDefaultOutwardWH] = useState("WH-2");
 
   // Inventory Settings state
-  const [safetyBuffer, setSafetyBuffer] = useState("15");
-  const [leadTime, setLeadTime] = useState("5");
-  const [lowStockNotification, setLowStockNotification] = useState(true);
-  const [autoReorderMail, setAutoReorderMail] = useState(false);
+  const [safetyBuffer, setSafetyBuffer] = useState(inventorySettings.safetyBuffer);
+  const [leadTime, setLeadTime] = useState(inventorySettings.leadTime);
+  const [lowStockNotification, setLowStockNotification] = useState(inventorySettings.lowStockNotification);
+  const [autoReorderMail, setAutoReorderMail] = useState(inventorySettings.autoReorderMail);
 
   // Alerts & API state
   const [whatsappApiToken, setWhatsappApiToken] = useState("wh_live_a982fd09ce81bc13e");
@@ -41,8 +41,8 @@ export default function SettingsPage() {
   const [whatsappTemplate, setWhatsappTemplate] = useState("standard_overdue");
 
   // Security state
-  const [twoFactor, setTwoFactor] = useState(false);
-  const [sessionTimeout, setSessionTimeout] = useState("30");
+  const [twoFactor, setTwoFactor] = useState(mfaEnabled || false);
+  const [sessionTimeout, setSessionTimeout] = useState(storeSessionTimeout?.toString() || "30");
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -67,6 +67,13 @@ export default function SettingsPage() {
         full_name: fullName,
         email: email,
         role: role
+      });
+      setSecuritySettings(twoFactor, parseInt(sessionTimeout, 10));
+      setInventorySettings({
+        safetyBuffer,
+        leadTime,
+        lowStockNotification,
+        autoReorderMail
       });
       showToast("All settings saved and applied successfully.");
     }, 800);
@@ -222,7 +229,7 @@ export default function SettingsPage() {
             )}
 
             {/* Tab: Company Profile */}
-            {activeTab === "Company Info" && (
+            {activeTab === "Company Profile" && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <h3 className="text-lg font-bold text-text-primary uppercase tracking-widest border-b border-border/50 pb-4">
                   Company Configuration

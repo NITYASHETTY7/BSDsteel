@@ -57,20 +57,24 @@ export default function SkuDetailPage() {
   const { user } = useAuthStore();
 
   const [isTxnPanelOpen, setIsTxnPanelOpen] = useState(false);
+  const [isEditPanelOpen, setIsEditPanelOpen] = useState(false);
   const [txnError, setTxnError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [txnType, setTxnType] = useState("inward");
+  const [isEditing, setIsEditing] = useState(false);
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToastMessage({ msg, type });
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const { data: sku, isLoading: skuLoading } = useSkuDetail(skuId);
+  const { data: sku, isLoading: skuLoading, refetch: refetchSku } = useSkuDetail(skuId);
   const { data: ledger, isLoading: ledgerLoading } = useStockLedger(skuId);
   const { data: transactions, isLoading: txnsLoading } = useTransactions({ sku_id: skuId });
   const { data: warehouses } = useWarehouses();
   const { mutate: createTxn, isPending: isTxnPending } = useCreateTransaction();
+  const { api } = require('@/lib/api');
 
   const canEditSku  = user?.role !== "warehouse_staff";
   const canRecordTxn = ["warehouse_staff", "operations", "management"].includes(user?.role || "");
@@ -102,6 +106,33 @@ export default function SkuDetailPage() {
     });
   };
 
+  const handleEditSku = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setEditError(null);
+    setIsEditing(true);
+    const fd = new FormData(e.currentTarget);
+    const updateData: any = {
+      thickness_mm: parseFloat(fd.get("thickness_mm") as string),
+      width_mm: parseFloat(fd.get("width_mm") as string),
+      grade: fd.get("grade") as string,
+      reorder_threshold: parseFloat(fd.get("reorder_threshold") as string),
+    };
+    const lengthStr = fd.get("length_mm") as string;
+    if (lengthStr) updateData.length_mm = parseFloat(lengthStr);
+
+    try {
+      await api.patch(`/api/skus/${skuId}`, updateData);
+      showToast("SKU updated successfully.");
+      setIsEditPanelOpen(false);
+      refetchSku();
+    } catch (err: any) {
+      const d = err.response?.data?.detail;
+      setEditError(Array.isArray(d) ? d.map((x: any) => `${x.loc.at(-1)}: ${x.msg}`).join(", ") : d || "Failed to update SKU");
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
   if (skuLoading) {
     return (
       <div className="p-6 space-y-4">
@@ -116,10 +147,13 @@ export default function SkuDetailPage() {
 
   if (!sku) return <div className="p-6 text-text-primary">SKU not found.</div>;
 
-  const maxBatchQty = ledger?.batches.reduce((max, b) => Math.max(max, b.quantity_on_hand), 0) || 100;
+  const maxBatchQty = ledger?.batches.reduce((max, b) => Math.max(max, Number(b.quantity_on_hand)), 0) || 100;
   const vizMax = maxBatchQty > 0 ? maxBatchQty * 1.2 : 100;
-  const stockStatus = sku.total_stock < sku.reorder_threshold ? "critical"
-    : sku.total_stock <= sku.reorder_threshold * 1.2 ? "warning" : "healthy";
+  
+  const stock = Number(sku.total_stock);
+  const threshold = Number(sku.reorder_threshold);
+  const stockStatus = stock < threshold ? "critical"
+    : stock <= threshold * 1.2 ? "warning" : "healthy";
 
   const statusConfig = {
     critical: { label: "Low Stock",  color: "#D02936", bg: "rgba(208,41,54,0.1)",  icon: AlertTriangle },
@@ -160,7 +194,7 @@ export default function SkuDetailPage() {
         <div className="flex items-center gap-3">
           {canEditSku && (
             <button
-              onClick={() => showToast("Edit SKU — available once backend is connected.")}
+              onClick={() => setIsEditPanelOpen(true)}
               className="flex items-center gap-2 px-4 py-2.5 bg-panel border border-border text-text-primary font-bold text-xs uppercase tracking-widest rounded-xl hover:border-white/30 transition-all"
             >
               <Edit className="w-4 h-4" /> Edit SKU
@@ -180,8 +214,8 @@ export default function SkuDetailPage() {
       {/* KPI Strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { icon: Package,   label: "Total Stock",       value: `${sku.total_stock} ${sku.unit_of_measure}`,   color: "#4A90E2" },
-          { icon: Layers,    label: "Reorder Threshold", value: `${sku.reorder_threshold} ${sku.unit_of_measure}`, color: "#F4A623" },
+          { icon: Package,   label: "Total Stock",       value: `${Number(sku.total_stock)} ${sku.unit_of_measure}`,   color: "#4A90E2" },
+          { icon: Layers,    label: "Reorder Threshold", value: `${Number(sku.reorder_threshold)} ${sku.unit_of_measure}`, color: "#F4A623" },
           { icon: Ruler,     label: "Dimensions",        value: `${sku.thickness_mm} × ${sku.width_mm}mm`,    color: "#3D7A6B" },
           { icon: Hash,      label: "Grade / Standard",  value: sku.grade,                                      color: "#A78BFA" },
         ].map(({ icon: Icon, label, value, color }) => (
@@ -200,22 +234,22 @@ export default function SkuDetailPage() {
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-bold text-text-muted uppercase tracking-widest">Stock Level vs Reorder Threshold</span>
           <span className="text-xs font-bold" style={{ color: statusConfig.color }}>
-            {Math.round((sku.total_stock / Math.max(sku.reorder_threshold, 1)) * 100)}% of threshold
+            {Math.round((stock / Math.max(threshold, 1)) * 100)}% of threshold
           </span>
         </div>
         <div className="h-2.5 w-full bg-border rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-700"
             style={{
-              width: `${Math.min((sku.total_stock / Math.max(sku.reorder_threshold * 2, 1)) * 100, 100)}%`,
+              width: `${Math.min((stock / Math.max(threshold * 2, 1)) * 100, 100)}%`,
               backgroundColor: statusConfig.color,
             }}
           />
         </div>
         <div className="flex justify-between text-[10px] text-text-muted mt-1.5">
           <span>0</span>
-          <span>Reorder @ {sku.reorder_threshold} {sku.unit_of_measure}</span>
-          <span>{sku.reorder_threshold * 2} {sku.unit_of_measure}</span>
+          <span>Reorder @ {threshold} {sku.unit_of_measure}</span>
+          <span>{threshold * 2} {sku.unit_of_measure}</span>
         </div>
       </div>
 
@@ -259,11 +293,11 @@ export default function SkuDetailPage() {
                     <td className="py-3.5 pr-4 text-sm text-text-muted font-mono">WH-{b.warehouse_id}</td>
                     <td className="py-3.5 pr-4 text-sm text-text-muted">{format(new Date(b.received_date), "dd MMM yyyy")}</td>
                     <td className="py-3.5 pr-4 text-right">
-                      <span className="font-mono font-bold text-sm text-text-primary">{b.quantity_on_hand}</span>
+                      <span className="font-mono font-bold text-sm text-text-primary">{Number(b.quantity_on_hand)}</span>
                       <span className="text-text-muted text-xs ml-1">{sku.unit_of_measure}</span>
                     </td>
                     <td className="py-3.5">
-                      <StackedPlateBar quantity={b.quantity_on_hand} maxQuantity={vizMax} />
+                      <StackedPlateBar quantity={Number(b.quantity_on_hand)} maxQuantity={vizMax} />
                     </td>
                   </tr>
                 ))}
@@ -324,8 +358,8 @@ export default function SkuDetailPage() {
                           {t.transaction_type.replace("_", " ")}
                         </span>
                       </td>
-                      <td className={`py-3.5 pr-4 text-right font-mono font-bold text-sm ${t.quantity > 0 ? "text-success" : "text-critical"}`}>
-                        {t.quantity > 0 ? "+" : ""}{t.quantity} {sku.unit_of_measure}
+                      <td className={`py-3.5 pr-4 text-right font-mono font-bold text-sm ${Number(t.quantity) > 0 ? "text-success" : "text-critical"}`}>
+                        {Number(t.quantity) > 0 ? "+" : ""}{Number(t.quantity)} {sku.unit_of_measure}
                       </td>
                       <td className="py-3.5 pr-4 text-xs text-text-muted font-mono">{t.batch_id || "—"}</td>
                       <td className="py-3.5 pr-4 text-xs text-text-muted font-mono">WH-{t.warehouse_id}</td>
@@ -373,7 +407,7 @@ export default function SkuDetailPage() {
             <SelectField label="Select Batch" name="batch_id" required>
               <option value="">Select batch…</option>
               {ledger?.batches.map(b => (
-                <option key={b.id} value={b.id}>{b.batch_number} — {b.quantity_on_hand} {sku.unit_of_measure} available</option>
+                <option key={b.id} value={b.id}>{b.batch_number} — {Number(b.quantity_on_hand)} {sku.unit_of_measure} available</option>
               ))}
             </SelectField>
           )}
@@ -404,6 +438,41 @@ export default function SkuDetailPage() {
               ) : (
                 <><ArrowDownCircle className="w-4 h-4" /> Confirm Transaction</>
               )}
+            </button>
+          </div>
+        </form>
+      </SlidePanel>
+
+      {/* Edit SKU Panel */}
+      <SlidePanel
+        isOpen={isEditPanelOpen}
+        onClose={() => setIsEditPanelOpen(false)}
+        title="Edit SKU Details"
+        subtitle={`SKU: ${sku.sku_code}`}
+      >
+        <form onSubmit={handleEditSku} className="space-y-4">
+          {editError && (
+            <div className="p-3 bg-critical/10 border border-critical/30 text-critical text-xs rounded-xl font-medium">
+              {editError}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <InputField label="Thickness (mm)" name="thickness_mm" required type="number" step="0.01" defaultValue={sku.thickness_mm} />
+            <InputField label="Width (mm)" name="width_mm" required type="number" step="0.01" defaultValue={sku.width_mm} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <InputField label="Length (mm)" name="length_mm" type="number" step="0.01" defaultValue={sku.length_mm || ""} placeholder="Optional" />
+            <InputField label="Grade" name="grade" required type="text" defaultValue={sku.grade} />
+          </div>
+          <InputField label="Reorder Threshold" name="reorder_threshold" required type="number" step="0.01" defaultValue={sku.reorder_threshold} />
+          
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={isEditing}
+              className="w-full bg-accent text-white font-display font-bold uppercase tracking-widest py-3.5 rounded-xl hover:bg-accent/90 shadow-lg shadow-accent/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isEditing ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </form>

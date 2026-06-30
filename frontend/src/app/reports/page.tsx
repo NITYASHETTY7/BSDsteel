@@ -55,8 +55,10 @@ export default function ReportsPage() {
     let lowStockCount = 0;
 
     invoices.forEach((inv) => {
-      totalRevenue += inv.amount_paid;
-      totalOutstanding += inv.total_amount - inv.amount_paid;
+      const amountPaid = Number(inv.amount_paid);
+      const totalAmount = Number(inv.total_amount);
+      totalRevenue += amountPaid;
+      totalOutstanding += totalAmount - amountPaid;
     });
 
     skus.forEach((sku) => {
@@ -77,7 +79,7 @@ export default function ReportsPage() {
     invoices.forEach(inv => {
       if (inv.status === 'paid') return;
       const diffDays = Math.ceil((now.getTime() - new Date(inv.due_date).getTime()) / (1000 * 60 * 60 * 24));
-      const outstandingAmt = inv.total_amount - inv.amount_paid;
+      const outstandingAmt = Number(inv.total_amount) - Number(inv.amount_paid);
       if (diffDays <= 0 || diffDays <= 30) under30 += outstandingAmt;
       else if (diffDays <= 60) days30to60 += outstandingAmt;
       else over60 += outstandingAmt;
@@ -94,7 +96,7 @@ export default function ReportsPage() {
     const typeMap = new Map<string, number>();
     skus.forEach(sku => {
       const current = typeMap.get(sku.product_type) || 0;
-      typeMap.set(sku.product_type, current + sku.total_stock);
+      typeMap.set(sku.product_type, current + Number(sku.total_stock));
     });
     return Array.from(typeMap.entries()).map(([name, value]) => ({
       name: name.replace('_', ' ').toUpperCase(),
@@ -138,14 +140,17 @@ export default function ReportsPage() {
           </h1>
           <p className="text-text-muted text-sm mt-1">Financial overview and stock health summary</p>
         </div>
-        <button className="flex items-center gap-2 bg-panel border border-border text-text-muted hover:text-text-primary hover:border-white/20 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all">
+        <button 
+          onClick={() => window.print()}
+          className="flex items-center gap-2 bg-panel border border-border text-text-muted hover:text-text-primary hover:border-white/20 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+        >
           <Download className="w-3.5 h-3.5" />
           Export Report
         </button>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 print:grid-cols-4 gap-4 mb-8">
         {[
           {
             label: "Total Revenue Collected",
@@ -207,9 +212,9 @@ export default function ReportsPage() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 print:grid-cols-3 gap-6 mb-8">
         {/* Monthly Collection Trend - takes 2 cols */}
-        <div className="lg:col-span-2 bg-panel/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 flex flex-col shadow-xl">
+        <div className="lg:col-span-2 print:col-span-2 bg-panel/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 flex flex-col shadow-xl">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-sm font-display font-bold text-text-primary uppercase tracking-widest">Collection Trend</h3>
@@ -232,7 +237,12 @@ export default function ReportsPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A314A" vertical={false} />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 11 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 11 }} tickFormatter={formatShort} />
-                <Tooltip contentStyle={CustomTooltipStyle} formatter={(v: unknown) => [formatCurrency(Number(v)), ""]} />
+                <Tooltip 
+                  contentStyle={CustomTooltipStyle} 
+                  itemStyle={{ color: '#E2E8F0', fontWeight: 'bold' }}
+                  labelStyle={{ color: '#94A3B8', marginBottom: '4px' }}
+                  formatter={(v: unknown) => [formatCurrency(Number(v)), ""]} 
+                />
                 <Area type="monotone" dataKey="collected" stroke="#3D7A6B" strokeWidth={2} fill="url(#collected)" name="Collected" />
                 <Area type="monotone" dataKey="outstanding" stroke="#D02936" strokeWidth={2} fill="url(#outstanding)" name="Outstanding" />
               </AreaChart>
@@ -263,7 +273,12 @@ export default function ReportsPage() {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={CustomTooltipStyle} formatter={(v: unknown) => [Number(v ?? 0), "MT"]} />
+                <Tooltip 
+                  contentStyle={CustomTooltipStyle} 
+                  itemStyle={{ color: '#E2E8F0', fontWeight: 'bold' }}
+                  labelStyle={{ color: '#94A3B8' }}
+                  formatter={(v: unknown) => [Number(v ?? 0), "MT"]} 
+                />
                 <Legend verticalAlign="bottom" height={36} iconType="circle"
                   formatter={(value) => <span className="text-[10px] text-text-muted">{value}</span>}
                 />
@@ -287,7 +302,12 @@ export default function ReportsPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A314A" vertical={false} />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 11 }} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 11 }} tickFormatter={formatShort} />
-                <Tooltip contentStyle={CustomTooltipStyle} formatter={(v: unknown) => [formatCurrency(Number(v ?? 0)), "Amount"]} />
+                <Tooltip 
+                  contentStyle={CustomTooltipStyle} 
+                  itemStyle={{ color: '#E2E8F0', fontWeight: 'bold' }}
+                  labelStyle={{ color: '#94A3B8', marginBottom: '4px' }}
+                  formatter={(v: unknown) => [formatCurrency(Number(v ?? 0)), "Amount"]} 
+                />
                 <Bar dataKey="amount" fill="#D02936" radius={[6, 6, 0, 0]} maxBarSize={60} />
               </BarChart>
             </ResponsiveContainer>
@@ -317,7 +337,7 @@ export default function ReportsPage() {
                       <p className="text-text-muted text-[10px] mt-0.5">{inv.customer?.business_name}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-accent text-xs font-bold">{formatCurrency(inv.total_amount - inv.amount_paid)}</p>
+                      <p className="text-accent text-xs font-bold">{formatCurrency(Number(inv.total_amount) - Number(inv.amount_paid))}</p>
                       <p className="text-critical text-[10px] mt-0.5">{daysOverdue}d overdue</p>
                     </div>
                   </div>

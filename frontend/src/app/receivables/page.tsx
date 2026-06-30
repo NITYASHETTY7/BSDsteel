@@ -9,17 +9,18 @@ import { format } from "date-fns";
 import {
   DollarSign, MessageCircle, Plus, X, AlertCircle,
   Clock, CheckCircle, TrendingDown, Filter, Download,
-  IndianRupee, Users, FileText, AlertTriangle
+  IndianRupee, Users, FileText, AlertTriangle, ChevronDown, ChevronUp
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
+import { usePdfExport } from "@/hooks/usePdfExport";
 
 /* ─── Aging Bucket Helper ──────────────────────────── */
 function getAgingBucket(dueDateStr: string): { label: string; days: number; color: string; bg: string } {
   const days = Math.ceil((new Date().getTime() - new Date(dueDateStr).getTime()) / 86400000);
-  if (days <= 0)  return { label: "Current",   days, color: "#3D7A6B", bg: "rgba(61,122,107,0.12)"  };
-  if (days <= 30) return { label: "0–30 Days", days, color: "#F4A623", bg: "rgba(244,166,35,0.12)"  };
-  if (days <= 60) return { label: "30–60 Days",days, color: "#D02936", bg: "rgba(208,41,54,0.12)"   };
-  return             { label: "60+ Days",  days, color: "#9F1239", bg: "rgba(159,18,57,0.15)"   };
+  if (days <= 0)  return { label: "Current (Not Yet Due)",   days, color: "#3D7A6B", bg: "rgba(61,122,107,0.12)"  };
+  if (days <= 30) return { label: "1–30 Days Overdue", days, color: "#F4A623", bg: "rgba(244,166,35,0.12)"  };
+  if (days <= 60) return { label: "31–60 Days Overdue",days, color: "#D02936", bg: "rgba(208,41,54,0.12)"   };
+  return             { label: "61+ Days Overdue",  days, color: "#9F1239", bg: "rgba(159,18,57,0.15)"   };
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
@@ -34,8 +35,10 @@ export default function ReceivablesPage() {
   const { data: invoices, isLoading } = useInvoices();
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isCreatingPanel, setIsCreatingPanel] = useState(false);
+  const [expandedInvoiceId, setExpandedInvoiceId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [agingFilter, setAgingFilter] = useState<string>("all");
+  const { exportInvoices } = usePdfExport();
 
   const { mutate: createInvoice, isPending: isCreatingInvoice } = useCreateInvoice();
   const { mutate: createCustomer } = useCreateCustomer();
@@ -47,8 +50,11 @@ export default function ReceivablesPage() {
     if (!invoices) return { outstanding: 0, overdue: 0, collected: 0, totalInvoices: 0 };
     return invoices.reduce((acc, inv) => {
       const bal = Number(inv.total_amount) - Number(inv.amount_paid);
-      if (inv.status !== "paid") acc.outstanding += bal;
-      if (inv.status === "overdue") acc.overdue += bal;
+      const days = Math.ceil((new Date().getTime() - new Date(inv.due_date).getTime()) / 86400000);
+      if (inv.status !== "paid") {
+        acc.outstanding += bal;
+        if (days > 0) acc.overdue += bal;
+      }
       acc.collected += Number(inv.amount_paid);
       acc.totalInvoices++;
       return acc;
@@ -88,31 +94,6 @@ export default function ReceivablesPage() {
 
   const fmt = (n: number) => n >= 100000 ? `₹${(n/100000).toFixed(1)}L` : `₹${n.toLocaleString("en-IN")}`;
 
-  const handleGenerateDummy = () => {
-    createCustomer({
-      business_name: "Larsen & Toubro Ltd.",
-      contact_person: "Rahul Sharma",
-      phone: "+91 98765 43210",
-      email: "billing@lt.com",
-      billing_address: "L&T House, Ballard Estate, Mumbai - 400001",
-    }, {
-      onSuccess: (newCust) => {
-        createInvoice({
-          customer_id: newCust.id,
-          invoice_number: `INV-${Math.floor(Math.random() * 9000) + 1000}`,
-          due_date: new Date(Date.now() + 86400000 * 14).toISOString(),
-          total_amount: Math.floor(Math.random() * 500000) + 50000,
-          branch: "New Bamboo Bazaar",
-          items: [{
-            t_l_w: "12.5", section_weight: 100, si_no: "SN001",
-            item_description: "Hot Rolled Steel Sheets", weight: 2500,
-            number_of_sheets: 25, weight_per_sheet: 100
-          }]
-        });
-      }
-    });
-  };
-
   return (
     <div className="flex flex-col min-h-full pb-8">
 
@@ -127,17 +108,10 @@ export default function ReceivablesPage() {
         {canEdit && (
           <div className="flex items-center gap-3">
             <button
-              onClick={() => {}}
+              onClick={() => invoices && exportInvoices(invoices)}
               className="flex items-center gap-2 px-4 py-2.5 bg-panel border border-border text-text-muted hover:text-text-primary font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
             >
               <Download className="w-3.5 h-3.5" /> Export
-            </button>
-            <button
-              onClick={handleGenerateDummy}
-              disabled={isCreatingInvoice}
-              className="flex items-center gap-2 px-4 py-2.5 bg-panel border border-border text-text-muted hover:text-text-primary font-bold text-xs uppercase tracking-widest rounded-xl transition-all disabled:opacity-50"
-            >
-              {isCreatingInvoice ? "Generating…" : "+ Quick Demo"}
             </button>
             <button
               onClick={() => setIsCreatingPanel(true)}
@@ -154,7 +128,7 @@ export default function ReceivablesPage() {
         {[
           { label: "Total Outstanding", value: fmt(kpis.outstanding), icon: IndianRupee, color: "#D02936", bg: "rgba(208,41,54,0.1)" },
           { label: "Overdue Balance",   value: fmt(kpis.overdue),     icon: AlertTriangle, color: "#F4A623", bg: "rgba(244,166,35,0.1)" },
-          { label: "Collected (Paid)",  value: fmt(kpis.collected),   icon: CheckCircle,   color: "#3D7A6B", bg: "rgba(61,122,107,0.1)" },
+          { label: "Payments Received", value: fmt(kpis.collected),   icon: CheckCircle,   color: "#3D7A6B", bg: "rgba(61,122,107,0.1)" },
           { label: "Total Invoices",    value: String(kpis.totalInvoices), icon: FileText, color: "#4A90E2", bg: "rgba(74,144,226,0.1)" },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="bg-panel border border-border rounded-2xl p-5 card-shadow relative overflow-hidden">
@@ -173,10 +147,10 @@ export default function ReceivablesPage() {
       {/* Aging Buckets Strip */}
       <div className="grid grid-cols-4 gap-3 mb-6">
         {[
-          { label: "Current",   amount: agingSummary.current, color: "#3D7A6B", key: "current" },
-          { label: "0–30 Days", amount: agingSummary.d30,    color: "#F4A623", key: "0-30"    },
-          { label: "30–60 Days",amount: agingSummary.d60,    color: "#D02936", key: "30-60"   },
-          { label: "60+ Days",  amount: agingSummary.d90,    color: "#9F1239", key: "60+"     },
+          { label: "Current (Not Yet Due)",   amount: agingSummary.current, color: "#3D7A6B", key: "current" },
+          { label: "1–30 Days Overdue", amount: agingSummary.d30,    color: "#F4A623", key: "0-30"    },
+          { label: "31–60 Days Overdue",amount: agingSummary.d60,    color: "#D02936", key: "30-60"   },
+          { label: "61+ Days Overdue",  amount: agingSummary.d90,    color: "#9F1239", key: "60+"     },
         ].map(({ label, amount, color, key }) => (
           <button
             key={key}
@@ -257,8 +231,13 @@ export default function ReceivablesPage() {
                   const st = STATUS_CONFIG[inv.status] || STATUS_CONFIG.unpaid;
                   return (
                     <tr key={inv.id} className="border-b border-border/50 hover:bg-white/[0.02] transition-colors group">
-                      <td className="px-6 py-4">
-                        <span className="font-mono font-bold text-sm text-text-primary">{inv.invoice_number}</span>
+                      <td className="px-6 py-4 cursor-pointer" onClick={() => inv.items?.length > 0 && setExpandedInvoiceId(expandedInvoiceId === inv.id ? null : inv.id)}>
+                        <div className="flex items-center gap-2">
+                          {inv.items?.length > 0 ? (
+                            expandedInvoiceId === inv.id ? <ChevronUp className="w-4 h-4 text-accent" /> : <ChevronDown className="w-4 h-4 text-accent" />
+                          ) : <div className="w-4 h-4" />}
+                          <span className="font-mono font-bold text-sm text-text-primary hover:text-accent transition-colors">{inv.invoice_number}</span>
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <p className="text-sm font-semibold text-text-primary">{inv.customer?.business_name || "—"}</p>
@@ -301,12 +280,11 @@ export default function ReceivablesPage() {
                             {inv.status !== "paid" && (
                               <>
                                 <button
-                                  onClick={() => setSelectedInvoice(inv)}
+                                  onClick={() => setSelectedInvoice(inv as any)}
                                   className="px-3 py-1.5 bg-accent/10 border border-accent/30 text-accent font-bold text-[10px] uppercase tracking-wider rounded-lg hover:bg-accent/20 transition-colors"
                                 >
                                   Pay
                                 </button>
-                                <ReminderButton invoiceId={inv.id} customerName={inv.customer?.business_name} />
                               </>
                             )}
                           </div>
@@ -444,9 +422,22 @@ function PaymentSlidePanel({ invoice, isOpen, onClose }: { invoice: Invoice | nu
 function CreateInvoiceSlidePanel({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { mutate: createInvoice, isPending } = useCreateInvoice();
   const { data: customers } = useCustomers();
+  
+  // Deduplicate customers by business_name to prevent redundant list entries
+  const uniqueCustomers = useMemo(() => {
+    if (!customers) return [];
+    const map = new Map<string, any>();
+    customers.forEach(c => {
+      const normalizedName = c.business_name.replace(/[.,]/g, "").trim().toLowerCase();
+      map.set(normalizedName, c);
+    });
+    return Array.from(map.values());
+  }, [customers]);
+
+  const [customerName, setCustomerName] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [branch, setBranch] = useState("");
+  const [branch, setBranch] = useState("New Bamboo Bazar");
   const [dueDate, setDueDate] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
   const [items, setItems] = useState<any[]>([]);
@@ -462,10 +453,16 @@ function CreateInvoiceSlidePanel({ isOpen, onClose }: { isOpen: boolean; onClose
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerId || !invoiceNumber || !dueDate || !totalAmount) return;
+    if (!dueDate || !totalAmount) return;
+    
+    // Find customer ID by name, or use 0 as fallback if creating a new one
+    const matchedCustomer = uniqueCustomers.find(c => c.business_name.toLowerCase() === customerName.toLowerCase());
+    const finalCustomerId = matchedCustomer ? matchedCustomer.id : (customerId ? Number(customerId) : 0);
+
     createInvoice({
-      customer_id: Number(customerId),
-      invoice_number: invoiceNumber,
+      customer_id: finalCustomerId,
+      customer_name: customerName, // Pass name in case backend supports creating on the fly
+      invoice_number: invoiceNumber || `INV-AUTO-${Math.floor(1000 + Math.random() * 9000)}`,
       due_date: new Date(dueDate).toISOString(),
       total_amount: Number(totalAmount),
       branch: branch || undefined,
@@ -499,18 +496,30 @@ function CreateInvoiceSlidePanel({ isOpen, onClose }: { isOpen: boolean; onClose
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Customer</label>
-                <select value={customerId} onChange={e => setCustomerId(e.target.value)} required className={inputCls + " appearance-none"}>
-                  <option value="" disabled>Select customer…</option>
-                  {customers?.map(c => <option key={c.id} value={c.id}>{c.business_name}</option>)}
-                </select>
+                <input 
+                  type="text" 
+                  value={customerName} 
+                  onChange={e => setCustomerName(e.target.value)} 
+                  required 
+                  className={inputCls} 
+                  placeholder="Customer name" 
+                  list="customer-list"
+                />
+                <datalist id="customer-list">
+                  {uniqueCustomers.map(c => <option key={c.id} value={c.business_name} />)}
+                </datalist>
               </div>
               <div>
                 <label className={labelCls}>Branch</label>
-                <input type="text" value={branch} onChange={e => setBranch(e.target.value)} className={inputCls} placeholder="e.g. New Bamboo Bazaar" />
+                <select value={branch} onChange={e => setBranch(e.target.value)} required className={inputCls + " appearance-none"}>
+                  <option value="New Bamboo Bazar">New Bamboo Bazar</option>
+                  <option value="Peenya">Peenya</option>
+                  <option value="Hosur">Hosur</option>
+                </select>
               </div>
               <div>
                 <label className={labelCls}>Invoice Number</label>
-                <input type="text" required value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} className={inputCls} placeholder="INV-XXXX" />
+                <input type="text" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} className={inputCls} placeholder="INV-XXXX (Optional)" />
               </div>
               <div>
                 <label className={labelCls}>Due Date</label>
@@ -521,7 +530,7 @@ function CreateInvoiceSlidePanel({ isOpen, onClose }: { isOpen: boolean; onClose
             {/* Line Items */}
             <div className="border-t border-border pt-5">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-bold text-text-primary uppercase tracking-widest">Line Items</h3>
+                <h3 className="text-xs font-bold text-text-primary uppercase tracking-widest">Line Items (Optional)</h3>
                 <button type="button" onClick={handleAddItem} className="text-xs text-accent hover:text-accent/80 font-bold uppercase tracking-wider transition-colors flex items-center gap-1">
                   <Plus className="w-3 h-3" /> Add Item
                 </button>
@@ -538,13 +547,13 @@ function CreateInvoiceSlidePanel({ isOpen, onClose }: { isOpen: boolean; onClose
                       <X className="w-3.5 h-3.5" />
                     </button>
                     <div className="grid grid-cols-2 gap-3 mb-3">
-                      <div><label className={labelCls}>Description</label><input type="text" required value={item.item_description} onChange={e => handleItemChange(index,"item_description",e.target.value)} className={inputCls} /></div>
-                      <div><label className={labelCls}>SI No.</label><input type="text" required value={item.si_no} onChange={e => handleItemChange(index,"si_no",e.target.value)} className={inputCls} /></div>
+                      <div><label className={labelCls}>Description</label><input type="text" value={item.item_description} onChange={e => handleItemChange(index,"item_description",e.target.value)} className={inputCls} placeholder="Optional" /></div>
+                      <div><label className={labelCls}>SI No.</label><input type="text" value={item.si_no} onChange={e => handleItemChange(index,"si_no",e.target.value)} className={inputCls} placeholder="Optional" /></div>
                     </div>
                     <div className="grid grid-cols-3 gap-3">
-                      <div><label className={labelCls}>T × L × W</label><input type="text" required value={item.t_l_w} onChange={e => handleItemChange(index,"t_l_w",e.target.value)} className={inputCls} /></div>
-                      <div><label className={labelCls}>Sec. Weight</label><input type="number" step="0.01" required value={item.section_weight} onChange={e => handleItemChange(index,"section_weight",e.target.value)} className={inputCls} /></div>
-                      <div><label className={labelCls}>No. of Sheets</label><input type="number" required value={item.number_of_sheets} onChange={e => handleItemChange(index,"number_of_sheets",e.target.value)} className={inputCls} /></div>
+                      <div><label className={labelCls}>T × L × W</label><input type="text" value={item.t_l_w} onChange={e => handleItemChange(index,"t_l_w",e.target.value)} className={inputCls} placeholder="Optional" /></div>
+                      <div><label className={labelCls}>Sec. Weight</label><input type="number" step="0.01" value={item.section_weight} onChange={e => handleItemChange(index,"section_weight",e.target.value)} className={inputCls} /></div>
+                      <div><label className={labelCls}>No. of Sheets</label><input type="number" value={item.number_of_sheets} onChange={e => handleItemChange(index,"number_of_sheets",e.target.value)} className={inputCls} /></div>
                     </div>
                   </div>
                 ))}
@@ -560,7 +569,7 @@ function CreateInvoiceSlidePanel({ isOpen, onClose }: { isOpen: boolean; onClose
 
         <div className="px-6 py-5 border-t border-border">
           <button type="submit" form="invoice-form"
-            disabled={isPending || !customerId || !invoiceNumber || !dueDate || !totalAmount}
+            disabled={isPending || !customerName || !dueDate || !totalAmount}
             className="w-full bg-accent text-white font-display font-bold uppercase tracking-widest py-3.5 rounded-xl hover:bg-accent/90 shadow-lg shadow-accent/20 transition-all disabled:opacity-50">
             {isPending ? "Creating…" : "Create Invoice"}
           </button>

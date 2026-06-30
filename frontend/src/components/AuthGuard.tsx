@@ -12,7 +12,7 @@ const roleAccess: Record<Role, string[]> = {
 };
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, token, user } = useAuthStore();
+  const { isAuthenticated, token, user, sessionTimeout, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
   const [isMounted, setIsMounted] = useState(false);
@@ -31,7 +31,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         router.push("/");
       } else if (isAuthenticated && !isAuthRoute && user) {
         // Common pages accessible by all authenticated users
-        const COMMON_PAGES = ["/notifications"];
+        const COMMON_PAGES = ["/notifications", "/audit"];
         
         // RBAC Prefix Check (e.g. /inventory allows /inventory/1)
         const allowedPrefixes = roleAccess[user.role] || [];
@@ -45,6 +45,29 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       }
     }
   }, [isAuthenticated, isMounted, pathname, router, user]);
+
+  // Session Timeout logic
+  useEffect(() => {
+    if (!isAuthenticated || !isMounted) return;
+
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        logout();
+      }, (sessionTimeout || 30) * 60 * 1000);
+    };
+
+    const events = ["mousemove", "keydown", "scroll", "click"];
+    events.forEach(e => window.addEventListener(e, resetTimer));
+    resetTimer(); // init
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach(e => window.removeEventListener(e, resetTimer));
+    };
+  }, [isAuthenticated, isMounted, sessionTimeout, logout]);
 
   // Avoid hydration mismatch by not rendering until mounted
   if (!isMounted) {

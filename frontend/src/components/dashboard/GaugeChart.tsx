@@ -25,13 +25,17 @@ export function GaugeChart({ value, max }: GaugeChartProps) {
     return { x: centerX + r * Math.cos(rad), y: centerY + r * Math.sin(rad) };
   };
 
-  // Color gradient: green → yellow → red based on fill
+  const getOverallColor = (pct: number) => {
+    if (pct < 0.5) return "#D02936"; // Red (Poor)
+    if (pct < 0.75) return "#F4A623"; // Amber (Moderate)
+    return "#3D7A6B"; // Green (Goal)
+  };
+
+  const activeColor = getOverallColor(percentage);
+
   const getSegmentColor = (index: number, active: number, total: number) => {
-    if (index >= active) return "rgb(var(--color-border))"; // theme-aware inactive
-    const ratio = index / total;
-    if (ratio < 0.5) return "rgb(var(--color-success))";   // green (early)
-    if (ratio < 0.75) return "rgb(var(--color-warning))";  // yellow (middle)
-    return "rgb(var(--color-accent))";                     // red (high)
+    if (index >= active) return "rgb(var(--color-border))"; // Inactive segments are gray
+    return activeColor; // Active segments take the performance color
   };
 
   const segments = Array.from({ length: totalSegments }).map((_, i) => {

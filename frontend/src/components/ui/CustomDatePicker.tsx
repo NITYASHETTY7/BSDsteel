@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays, isAfter, startOfDay } from 'date-fns';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DatePickerProps {
@@ -42,22 +42,28 @@ export function CustomDatePicker({ selectedDate, onDateSelect, placeholder = "Se
     let day = startDate;
     let formattedDate = "";
 
+    const today = startOfDay(new Date());
+
     while (day <= endDate) {
       for (let i = 0; i < 7; i++) {
         formattedDate = format(day, "d");
         const cloneDay = day;
+        const isDisabled = isAfter(cloneDay, today);
+        
         days.push(
           <div
             key={day.toString()}
-            onClick={() => onDateClick(cloneDay)}
-            className={`w-8 h-8 flex items-center justify-center rounded-full text-xs cursor-pointer transition-colors ${
-              !isSameMonth(day, monthStart)
-                ? "text-text-muted/30"
-                : isSameDay(day, selectedDate || new Date(0))
-                ? "bg-accent text-white shadow-[0_0_10px_rgba(208,41,54,0.4)] font-bold"
-                : isSameDay(day, new Date())
-                ? "bg-accent/10 text-accent border border-accent/20 hover:bg-accent/25"
-                : "text-text-primary hover:bg-white/5"
+            onClick={() => !isDisabled && onDateClick(cloneDay)}
+            className={`w-8 h-8 flex items-center justify-center rounded-full text-xs transition-colors ${
+              isDisabled
+                ? "text-text-muted/15 cursor-not-allowed"
+                : "cursor-pointer " + (!isSameMonth(day, monthStart)
+                  ? "text-text-muted/40"
+                  : isSameDay(day, selectedDate || new Date(0))
+                  ? "bg-accent text-white shadow-[0_0_10px_rgba(208,41,54,0.4)] font-bold"
+                  : isSameDay(day, new Date())
+                  ? "bg-accent/10 text-accent border border-accent/20 hover:bg-accent/25"
+                  : "text-text-primary hover:bg-white/5")
             }`}
           >
             {formattedDate}

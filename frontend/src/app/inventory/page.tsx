@@ -8,6 +8,7 @@ import { useSkus, useCreateSku, SKU } from "@/hooks/useInventory";
 import SlidePanel from "@/components/ui/SlidePanel";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Select } from "@/components/ui/Select";
+import toast from "react-hot-toast";
 
 const PRODUCT_TYPE_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   hr_coil:         { label: "HR Coil",         color: "#4A90E2", bg: "rgba(74,144,226,0.12)" },
@@ -34,7 +35,10 @@ function StockBar({ current, threshold }: { current: number; threshold: number }
 }
 
 function StatusPill({ sku }: { sku: SKU }) {
-  if (sku.total_stock < sku.reorder_threshold) {
+  const stock = Number(sku.total_stock);
+  const threshold = Number(sku.reorder_threshold);
+
+  if (stock < threshold) {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest"
         style={{ background: "rgba(208,41,54,0.15)", color: "#D02936", border: "1px solid rgba(208,41,54,0.3)" }}>
@@ -43,7 +47,7 @@ function StatusPill({ sku }: { sku: SKU }) {
       </span>
     );
   }
-  if (sku.total_stock <= sku.reorder_threshold * 1.2) {
+  if (stock <= threshold * 1.2) {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest"
         style={{ background: "rgba(244,166,35,0.15)", color: "#F4A623", border: "1px solid rgba(244,166,35,0.3)" }}>
@@ -83,8 +87,8 @@ export default function InventoryPage() {
 
   const stats = useMemo(() => {
     if (!skus) return { total: 0, lowStock: 0, healthy: 0 };
-    const lowStock = skus.filter(s => s.total_stock < s.reorder_threshold).length;
-    const healthy = skus.filter(s => s.total_stock >= s.reorder_threshold * 1.2).length;
+    const lowStock = skus.filter(s => Number(s.total_stock) < Number(s.reorder_threshold)).length;
+    const healthy = skus.filter(s => Number(s.total_stock) >= Number(s.reorder_threshold) * 1.2).length;
     return { total: skus.length, lowStock, healthy };
   }, [skus]);
 
@@ -93,21 +97,34 @@ export default function InventoryPage() {
     setError(null);
     const formData = new FormData(e.currentTarget);
     const lengthStr = formData.get("length_mm") as string;
+    const thickness = parseFloat(formData.get("thickness_mm") as string);
+    const productType = formData.get("product_type") as string;
+    
+    if ((productType === "hr_coil" || productType === "hr_sheet") && (thickness < 1.6 || thickness > 25)) {
+      toast.error("Rejected: Hot-rolled steel thickness must be between 1.6mm and 25mm", { style: { background: 'rgba(208,41,54,0.1)', color: '#D02936', border: '1px solid rgba(208,41,54,0.3)' }});
+      return;
+    }
+
     createSku({
       sku_code: formData.get("sku_code") as string,
-      product_type: formData.get("product_type") as string,
+      product_type: productType,
       grade: formData.get("grade") as string,
       unit_of_measure: formData.get("unit_of_measure") as string,
-      thickness_mm: parseFloat(formData.get("thickness_mm") as string),
+      thickness_mm: thickness,
       width_mm: parseFloat(formData.get("width_mm") as string),
       length_mm: lengthStr ? parseFloat(lengthStr) : undefined,
       reorder_threshold: parseFloat(formData.get("reorder_threshold") as string),
       is_active: true,
     }, {
-      onSuccess: () => setIsSlideOpen(false),
+      onSuccess: () => {
+        setIsSlideOpen(false);
+        toast.success("SKU Created Successfully", { style: { background: 'rgba(61,122,107,0.1)', color: '#3D7A6B', border: '1px solid rgba(61,122,107,0.3)' }});
+      },
       onError: (err: any) => {
         const d = err.response?.data?.detail;
-        setError(Array.isArray(d) ? d.map((x: any) => `${x.loc.at(-1)}: ${x.msg}`).join(", ") : d || "Failed to create SKU");
+        const msg = Array.isArray(d) ? d.map((x: any) => `${x.loc.at(-1)}: ${x.msg}`).join(", ") : d || "Failed to create SKU";
+        setError(msg);
+        toast.error("Rejected: " + msg, { style: { background: 'rgba(208,41,54,0.1)', color: '#D02936', border: '1px solid rgba(208,41,54,0.3)' }});
       },
     });
   };
@@ -266,9 +283,9 @@ export default function InventoryPage() {
                       <td className="px-5 py-3">
                         <div className="flex flex-col gap-1.5 justify-center">
                           <span className="font-mono font-bold text-sm text-text-primary">
-                            {sku.total_stock} <span className="text-text-muted text-[10px] uppercase font-bold">{sku.unit_of_measure}</span>
+                            {Number(sku.total_stock)} <span className="text-text-muted text-[10px] uppercase font-bold">{sku.unit_of_measure}</span>
                           </span>
-                          <StockBar current={sku.total_stock} threshold={sku.reorder_threshold} />
+                          <StockBar current={Number(sku.total_stock)} threshold={Number(sku.reorder_threshold)} />
                         </div>
                       </td>
                       <td className="px-5 py-3"><StatusPill sku={sku} /></td>
@@ -287,9 +304,6 @@ export default function InventoryPage() {
       {/* Create SKU Panel */}
       <SlidePanel isOpen={isSlideOpen} onClose={() => setIsSlideOpen(false)} title="Create New SKU">
         <form onSubmit={handleCreateSku} className="space-y-4">
-          {error && (
-            <div className="p-3 bg-red-900/20 border border-red-500/30 text-red-400 text-xs italic rounded-xl">{error}</div>
-          )}
           <div>
             <label className="block text-[10px] uppercase tracking-widest text-text-muted mb-1.5 ml-1">SKU Code</label>
             <input required name="sku_code" type="text" placeholder="e.g. HRC-1.6-1250"
@@ -307,7 +321,7 @@ export default function InventoryPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] uppercase tracking-widest text-text-muted mb-1.5 ml-1">Thickness (mm)</label>
-              <input required name="thickness_mm" type="number" step="0.01"
+              <input required name="thickness_mm" type="number" step="0.01" min={formProductType === 'hr_coil' || formProductType === 'hr_sheet' ? "1.6" : undefined} max={formProductType === 'hr_coil' || formProductType === 'hr_sheet' ? "25" : undefined}
                 className="w-full bg-panel/40 border border-white/10 p-3 text-sm text-text-primary focus:border-accent outline-none rounded-xl shadow-inner transition-colors" />
             </div>
             <div>

@@ -7,93 +7,18 @@ import {
   AlertTriangle, CheckCircle, Info, Clock, ExternalLink
 } from "lucide-react";
 
-interface NotificationItem {
-  id: string;
-  type: "overdue" | "low_stock" | "payment" | "system";
-  text: string;
-  subtext: string;
-  time: string;
-  isRead: boolean;
-  link: string;
-}
-
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: "notif-1",
-    type: "overdue",
-    text: "Invoice #INV-1042 for Larsen & Toubro Ltd is overdue",
-    subtext: "Outstanding balance: ₹2,40,000. Due date was 15 Jun 2026.",
-    time: "2 hours ago",
-    isRead: false,
-    link: "/receivables",
-  },
-  {
-    id: "notif-2",
-    type: "payment",
-    text: "New payment received from Acme Corp",
-    subtext: "Amount: ₹2,50,000 via UPI. Applied to invoice #INV-1039.",
-    time: "4 hours ago",
-    isRead: false,
-    link: "/receivables",
-  },
-  {
-    id: "notif-3",
-    type: "low_stock",
-    text: "Stock low on SKU: HRC-1.6-1250",
-    subtext: "Current stock is 4.5 Tonnes, which is below the safety threshold of 10.0 Tonnes.",
-    time: "1 day ago",
-    isRead: false,
-    link: "/inventory/1", // Mock detail link
-  },
-  {
-    id: "notif-4",
-    type: "system",
-    text: "WhatsApp API automated reminder dispatched to Wayne Enterprises",
-    subtext: "Delivery status: Delivered successfully via WhatsApp Business API.",
-    time: "1 day ago",
-    isRead: true,
-    link: "/receivables",
-  },
-  {
-    id: "notif-5",
-    type: "system",
-    text: "Monthly automated data export compiled",
-    subtext: "Compliance ledger for GSTIN audit is ready for download in PDF/Excel formats.",
-    time: "2 days ago",
-    isRead: true,
-    link: "/reports",
-  },
-  {
-    id: "notif-6",
-    type: "low_stock",
-    text: "Stock low on SKU: HRS-2.5-1500",
-    subtext: "Current stock is 6.2 Sheets, below the safety threshold of 8.0 Sheets.",
-    time: "3 days ago",
-    isRead: true,
-    link: "/inventory/2", // Mock detail link
-  },
-];
+import { useNotificationStore, NotificationItem } from "@/store/notificationStore";
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  const { notifications, markAsRead, markAllAsRead, deleteNotification } = useNotificationStore();
   const [filter, setFilter] = useState<"all" | "unread" | "overdue" | "low_stock">("all");
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  const handleMarkAsRead = (id: string) => {
-    setNotifications(
-      notifications.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-    );
-  };
-
-  const handleMarkAllAsRead = () => {
-    setNotifications(notifications.map((n) => ({ ...n, isRead: true })));
-  };
-
-  const handleDelete = (id: string) => {
-    setNotifications(notifications.filter((n) => n.id !== id));
-  };
+  const handleMarkAsRead = (id: string) => markAsRead(id);
+  const handleMarkAllAsRead = () => markAllAsRead();
+  const handleDelete = (id: string) => deleteNotification(id);
 
   const filteredNotifs = notifications.filter((n) => {
     if (filter === "unread") return !n.isRead;
@@ -230,13 +155,7 @@ export default function NotificationsPage() {
 
                   {/* Action group */}
                   <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => router.push(n.link)}
-                      className="p-2 bg-background border border-border text-text-muted hover:text-text-primary rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider"
-                      title="Inspect / Take Action"
-                    >
-                      Action <ExternalLink className="w-3.5 h-3.5" />
-                    </button>
+
                     {!n.isRead && (
                       <button
                         onClick={() => handleMarkAsRead(n.id)}

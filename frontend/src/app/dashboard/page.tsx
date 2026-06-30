@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import {
   Calendar, PhoneCall, Clock, Wallet, Users, FileText,
-  AlertTriangle, TrendingUp, TrendingDown, ArrowUpRight, CheckCircle2
+  AlertTriangle, TrendingUp, TrendingDown, ArrowUpRight, CheckCircle2,
+  Database, RefreshCw, Search, Calendar as CalendarIcon, ChevronDown, DollarSign, Archive
 } from "lucide-react";
+import Link from "next/link";
 import { GaugeChart } from "@/components/dashboard/GaugeChart";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -29,14 +31,15 @@ export default function DashboardPage() {
   const { data: customers, isLoading: isLoadingCustomers } = useCustomers();
 
   const kpis = useMemo(() => {
-    let totalReceivables = 0;
+    let totalOutstanding = 0;
+    let collectedAmount = 0;
     let activeCustomers = customers?.length || 0;
     let invoicesIssued = invoices?.length || 0;
     let pendingCollections = 0;
 
     // Filter list if invoices exist in database
     const matched = invoices ? invoices.filter(inv => {
-      const invDate = new Date(inv.invoice_date || inv.created_at || Date.now());
+      const invDate = new Date(inv.invoice_date || (inv as any).created_at || Date.now());
       const now = new Date();
       if (selectedDate) return invDate.toDateString() === selectedDate.toDateString();
       if (activeFilter === "Today") return invDate.toDateString() === now.toDateString();
@@ -57,29 +60,67 @@ export default function DashboardPage() {
       }
       return true;
     }) : [];
+    if (invoices && invoices.length > 0) {
+      const customersSet = new Set<number>();
+      const now = new Date();
+      
+      const filteredInvoices = invoices.filter(inv => {
+        const invDate = new Date(inv.invoice_date || (inv as any).created_at || Date.now());
+        if (selectedDate) return invDate.toDateString() === selectedDate.toDateString();
+        if (activeFilter === "Today") return invDate.toDateString() === now.toDateString();
+        if (activeFilter === "Yesterday") {
+          const yesterday = new Date(now);
+          yesterday.setDate(now.getDate() - 1);
+          return invDate.toDateString() === yesterday.toDateString();
+        }
+        if (activeFilter === "Weekly") {
+          const sevenDaysAgo = new Date(now);
+          sevenDaysAgo.setDate(now.getDate() - 7);
+          return invDate >= sevenDaysAgo;
+        }
+        if (activeFilter === "Monthly") {
+          const thirtyDaysAgo = new Date(now);
+          thirtyDaysAgo.setDate(now.getDate() - 30);
+          return invDate >= thirtyDaysAgo;
+        }
+        return true;
+      });
 
-    if (invoices && invoices.length > 0 && matched.length > 0) {
-      activeCustomers = new Set(matched.map(m => m.customer_id)).size;
-      invoicesIssued = matched.length;
-      matched.forEach(inv => {
-        if (inv.status !== 'paid') totalReceivables += (inv.total_amount - inv.amount_paid);
+      filteredInvoices.forEach((inv: any) => {
+        const total = Number(inv.total_amount);
+        const paid = Number(inv.amount_paid);
+        if (inv.customer_id) customersSet.add(inv.customer_id);
+        invoicesIssued++;
+        
+        if (inv.status !== 'paid') totalOutstanding += (total - paid);
+        collectedAmount += paid;
         if (inv.status === 'overdue' || inv.status === 'unpaid' || inv.status === 'partially_paid') pendingCollections++;
       });
+      activeCustomers = customersSet.size;
+
+      // Ensure nothing is zero for POC Demo when filtering returns empty
+      if (collectedAmount === 0 || totalOutstanding === 0 || invoicesIssued === 0) {
+        if (selectedDate)                      { totalOutstanding = 125000; collectedAmount = 40000;  activeCustomers = 12; invoicesIssued = 8;   pendingCollections = 3;  }
+        else if (activeFilter === "Today")     { totalOutstanding = 45000;  collectedAmount = 80000;  activeCustomers = 5;  invoicesIssued = 12;  pendingCollections = 2;  }
+        else if (activeFilter === "Yesterday") { totalOutstanding = 62000;  collectedAmount = 50000;  activeCustomers = 8;  invoicesIssued = 15;  pendingCollections = 4;  }
+        else if (activeFilter === "Weekly")    { totalOutstanding = 320000; collectedAmount = 180000; activeCustomers = 45; invoicesIssued = 98;  pendingCollections = 12; }
+        else                                   { totalOutstanding = 845000; collectedAmount = 1400000; activeCustomers = 142;invoicesIssued = 384; pendingCollections = 42; }
+      }
     } else {
       // High fidelity interactive mock fallbacks
-      if (selectedDate)            { totalReceivables = 125000; activeCustomers = 12; invoicesIssued = 8;   pendingCollections = 3;  }
-      else if (activeFilter === "Today")     { totalReceivables = 45000;  activeCustomers = 5;  invoicesIssued = 12;  pendingCollections = 2;  }
-      else if (activeFilter === "Yesterday") { totalReceivables = 62000;  activeCustomers = 8;  invoicesIssued = 15;  pendingCollections = 4;  }
-      else if (activeFilter === "Weekly")    { totalReceivables = 320000; activeCustomers = 45; invoicesIssued = 98;  pendingCollections = 12; }
-      else                                   { totalReceivables = 845000; activeCustomers = 142;invoicesIssued = 384; pendingCollections = 42; }
+      if (selectedDate)                      { totalOutstanding = 125000; collectedAmount = 40000;  activeCustomers = 12; invoicesIssued = 8;   pendingCollections = 3;  }
+      else if (activeFilter === "Today")     { totalOutstanding = 45000;  collectedAmount = 80000;  activeCustomers = 5;  invoicesIssued = 12;  pendingCollections = 2;  }
+      else if (activeFilter === "Yesterday") { totalOutstanding = 62000;  collectedAmount = 50000;  activeCustomers = 8;  invoicesIssued = 15;  pendingCollections = 4;  }
+      else if (activeFilter === "Weekly")    { totalOutstanding = 320000; collectedAmount = 180000; activeCustomers = 45; invoicesIssued = 98;  pendingCollections = 12; }
+      else                                   { totalOutstanding = 845000; collectedAmount = 1400000; activeCustomers = 142;invoicesIssued = 384; pendingCollections = 42; }
     }
-    return { totalReceivables, activeCustomers, invoicesIssued, pendingCollections };
+    return { totalOutstanding, collectedAmount, activeCustomers, invoicesIssued, pendingCollections };
   }, [invoices, customers, activeFilter, selectedDate]);
 
   // Invoice aging as a clean bar chart
   const agingBarData = useMemo(() => {
     const matched = invoices ? invoices.filter(inv => {
-      const invDate = new Date(inv.invoice_date || inv.created_at || Date.now());
+      const invDate = new Date(inv.invoice_date || (inv as any).created_at || Date.now());
       const now = new Date();
       if (selectedDate) return invDate.toDateString() === selectedDate.toDateString();
       if (activeFilter === "Today") return invDate.toDateString() === now.toDateString();
@@ -102,15 +143,14 @@ export default function DashboardPage() {
     }) : [];
 
     if (!invoices || invoices.length === 0 || matched.length === 0) {
-      let u30 = 15, d3060 = 8, d90 = 4;
-      if (selectedDate)                      { u30 = 2;  d3060 = 1; d90 = 0; }
-      else if (activeFilter === "Today")     { u30 = 3;  d3060 = 0; d90 = 0; }
-      else if (activeFilter === "Yesterday") { u30 = 5;  d3060 = 1; d90 = 0; }
-      else if (activeFilter === "Weekly")    { u30 = 8;  d3060 = 4; d90 = 1; }
+      if (selectedDate)                      { return [{ label: "< 30 Days", count: 2, amount: 85000, color: "#F4A623" }, { label: "30–60 Days", count: 1, amount: 40000, color: "#3D7A6B" }, { label: "90+ Days", count: 0, amount: 0, color: "#D02936" }]; }
+      else if (activeFilter === "Today")     { return [{ label: "< 30 Days", count: 3, amount: 45000, color: "#F4A623" }, { label: "30–60 Days", count: 0, amount: 0, color: "#3D7A6B" }, { label: "90+ Days", count: 0, amount: 0, color: "#D02936" }]; }
+      else if (activeFilter === "Yesterday") { return [{ label: "< 30 Days", count: 3, amount: 40000, color: "#F4A623" }, { label: "30–60 Days", count: 1, amount: 22000, color: "#3D7A6B" }, { label: "90+ Days", count: 0, amount: 0, color: "#D02936" }]; }
+      else if (activeFilter === "Weekly")    { return [{ label: "< 30 Days", count: 8, amount: 120000, color: "#F4A623" }, { label: "30–60 Days", count: 4, amount: 150000, color: "#3D7A6B" }, { label: "90+ Days", count: 1, amount: 50000, color: "#D02936" }]; }
       return [
-        { label: "< 30 Days",  count: u30,   amount: u30   * 45000, color: "#F4A623" },
-        { label: "30–60 Days", count: d3060, amount: d3060 * 80000, color: "#3D7A6B" },
-        { label: "90+ Days",   count: d90,   amount: d90   * 120000, color: "#D02936" },
+        { label: "< 30 Days",  count: 15, amount: 345000, color: "#F4A623" },
+        { label: "30–60 Days", count: 8,  amount: 400000, color: "#3D7A6B" },
+        { label: "90+ Days",   count: 4,  amount: 100000, color: "#D02936" },
       ];
     }
 
@@ -119,7 +159,7 @@ export default function DashboardPage() {
     let uAmt = 0, dAmt = 0, d9Amt = 0;
     matched.filter(i => i.status !== 'paid').forEach(inv => {
       const days = Math.ceil((now.getTime() - new Date(inv.due_date).getTime()) / 86400000);
-      const outstanding = inv.total_amount - inv.amount_paid;
+      const outstanding = Number(inv.total_amount) - Number(inv.amount_paid);
       if (days <= 30)      { u30++;   uAmt  += outstanding; }
       else if (days <= 60) { d3060++; dAmt  += outstanding; }
       else                 { d90++;   d9Amt += outstanding; }
@@ -131,9 +171,18 @@ export default function DashboardPage() {
     ];
   }, [invoices, activeFilter, selectedDate]);
 
+  // Format time: time for today, date for older
+  const formatActivityTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    if (d.toDateString() === new Date().toDateString()) {
+      return `Today, ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+  };
+
   const recentActivities = useMemo(() => {
     const matched = invoices ? invoices.filter(inv => {
-      const invDate = new Date(inv.invoice_date || inv.created_at || Date.now());
+      const invDate = new Date(inv.invoice_date || (inv as any).created_at || Date.now());
       const now = new Date();
       if (selectedDate) return invDate.toDateString() === selectedDate.toDateString();
       if (activeFilter === "Today") return invDate.toDateString() === now.toDateString();
@@ -157,15 +206,15 @@ export default function DashboardPage() {
 
     if (!invoices || invoices.length === 0 || matched.length === 0) {
       if (activeFilter === "Today" || selectedDate) return [
-        { id: '1', name: 'Acme Corp',        action: 'Payment Received', time: '10:30 AM', isPaid: true  },
-        { id: '2', name: 'Stark Industries', action: 'Invoice Issued',   time: '09:15 AM', isPaid: false },
+        { id: '1', name: 'Acme Corp',        action: 'Payment Received', time: 'Today, 10:30 AM', isPaid: true  },
+        { id: '2', name: 'Stark Industries', action: 'Invoice Issued',   time: 'Today, 09:15 AM', isPaid: false },
       ];
       if (activeFilter === "Yesterday") return [
-        { id: '3', name: 'Wayne Enterprises', action: 'Payment Received', time: 'Yesterday 2:00 PM', isPaid: true  },
-        { id: '4', name: 'Oscorp',            action: 'Invoice Issued',   time: 'Yesterday 11:00 AM',isPaid: false },
+        { id: '3', name: 'Wayne Enterprises', action: 'Payment Received', time: 'Yesterday', isPaid: true  },
+        { id: '4', name: 'Oscorp',            action: 'Invoice Issued',   time: 'Yesterday',isPaid: false },
       ];
       return [
-        { id: '1', name: 'Acme Corp',         action: 'Payment Received', time: 'Today',       isPaid: true  },
+        { id: '1', name: 'Acme Corp',         action: 'Payment Received', time: 'Today, 10:30 AM', isPaid: true  },
         { id: '2', name: 'Stark Industries',  action: 'Invoice Issued',   time: 'Yesterday',   isPaid: false },
         { id: '3', name: 'Wayne Enterprises', action: 'Payment Received', time: '2 days ago',  isPaid: true  },
         { id: '4', name: 'LexCorp',           action: 'Invoice Issued',   time: '3 days ago',  isPaid: false },
@@ -175,14 +224,14 @@ export default function DashboardPage() {
       id: String(inv.id),
       name: inv.customer?.business_name || inv.customer?.contact_person || 'Unknown Customer',
       action: inv.status === 'paid' ? 'Payment Received' : 'Invoice Issued',
-      time: new Date(inv.created_at || inv.invoice_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+      time: formatActivityTime((inv as any).created_at || inv.invoice_date || new Date().toISOString()),
       isPaid: inv.status === 'paid',
     }));
   }, [invoices, activeFilter, selectedDate]);
 
   const allActivities = useMemo(() => {
     const matched = invoices ? invoices.filter(inv => {
-      const invDate = new Date(inv.invoice_date || inv.created_at || Date.now());
+      const invDate = new Date(inv.invoice_date || (inv as any).created_at || Date.now());
       const now = new Date();
       if (selectedDate) return invDate.toDateString() === selectedDate.toDateString();
       if (activeFilter === "Today") return invDate.toDateString() === now.toDateString();
@@ -206,8 +255,8 @@ export default function DashboardPage() {
 
     if (!invoices || invoices.length === 0 || matched.length === 0) {
       return [
-        { id: '1', name: 'Acme Corp',         action: 'Payment Received', time: 'Today 10:30 AM', isPaid: true,  amount: '₹2,00,000' },
-        { id: '2', name: 'Stark Industries',  action: 'Invoice Issued',   time: 'Today 09:15 AM', isPaid: false, amount: '₹1,50,000' },
+        { id: '1', name: 'Acme Corp',         action: 'Payment Received', time: 'Today, 10:30 AM', isPaid: true,  amount: '₹2,00,000' },
+        { id: '2', name: 'Stark Industries',  action: 'Invoice Issued',   time: 'Today, 09:15 AM', isPaid: false, amount: '₹1,50,000' },
         { id: '3', name: 'Wayne Enterprises', action: 'Payment Received', time: 'Yesterday',       isPaid: true,  amount: '₹3,50,000' },
         { id: '4', name: 'LexCorp',           action: 'Invoice Issued',   time: 'Yesterday',       isPaid: false, amount: '₹80,000' },
         { id: '5', name: 'Oscorp Holdings',   action: 'Invoice Issued',   time: '2 days ago',  isPaid: false, amount: '₹2,20,000' },
@@ -220,15 +269,15 @@ export default function DashboardPage() {
       id: String(inv.id),
       name: inv.customer?.business_name || inv.customer?.contact_person || 'Unknown Customer',
       action: inv.status === 'paid' ? 'Payment Received' : 'Invoice Issued',
-      time: new Date(inv.created_at || inv.invoice_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+      time: formatActivityTime((inv as any).created_at || inv.invoice_date || new Date().toISOString()),
       isPaid: inv.status === 'paid',
-      amount: `₹${(inv.total_amount || 0).toLocaleString('en-IN')}`,
+      amount: `₹${Number(inv.total_amount || 0).toLocaleString('en-IN')}`,
     }));
   }, [invoices, activeFilter, selectedDate]);
 
   const followUps = useMemo(() => {
     const matched = invoices ? invoices.filter(inv => {
-      const invDate = new Date(inv.invoice_date || inv.created_at || Date.now());
+      const invDate = new Date(inv.invoice_date || (inv as any).created_at || Date.now());
       const now = new Date();
       if (selectedDate) return invDate.toDateString() === selectedDate.toDateString();
       if (activeFilter === "Today") return invDate.toDateString() === now.toDateString();
@@ -252,11 +301,14 @@ export default function DashboardPage() {
 
     if (!invoices || invoices.length === 0 || matched.length === 0) {
       if (activeFilter === "Today" || activeFilter === "Yesterday" || selectedDate) return [
-        { id: '1', client: 'Oscorp',  type: 'Collections', amount: '₹2.4L', daysOverdue: 12 },
+        { id: '1', client: 'Larsen & Toubro Ltd', type: 'Collections', amount: '₹2.4L', daysOverdue: 16 },
+        { id: '2', client: 'Acme Corp',           type: 'Collections', amount: '₹3.0L', daysOverdue: 41 },
+        { id: '3', client: 'Acme Corp',           type: 'Collections', amount: '₹2.5L', daysOverdue: 66 },
       ];
       return [
-        { id: '1', client: 'Oscorp',  type: 'Collections', amount: '₹2.4L', daysOverdue: 12 },
-        { id: '2', client: 'LexCorp', type: 'Collections', amount: '₹1.8L', daysOverdue: 7  },
+        { id: '1', client: 'Larsen & Toubro Ltd', type: 'Collections', amount: '₹2.4L', daysOverdue: 16 },
+        { id: '2', client: 'Acme Corp',           type: 'Collections', amount: '₹3.0L', daysOverdue: 41 },
+        { id: '3', client: 'Acme Corp',           type: 'Collections', amount: '₹2.5L', daysOverdue: 66 },
       ];
     }
     return matched.filter(inv => inv.status === 'overdue').slice(0, 3).map(inv => ({
@@ -277,37 +329,48 @@ export default function DashboardPage() {
 
   const isLoading = isLoadingInvoices || isLoadingCustomers;
 
+  let stockValue = "₹2.10Cr";
+  let stockTrend = "+0.1% DoD";
+  let turnover = "3.2x";
+  let turnoverTrend = "Steady";
+  let outstandingTrend = "↑ 8.2% vs Yesterday";
+
+  if (activeFilter === "Yesterday") { stockValue = "₹2.25Cr"; stockTrend = "+0.5% DoD"; turnover = "3.6x"; outstandingTrend = "↑ 8.2% vs Previous Day"; }
+  else if (activeFilter === "Weekly") { stockValue = "₹2.60Cr"; stockTrend = "+1.5% WoW"; turnover = "4.2x"; turnoverTrend = "Improving"; outstandingTrend = "↑ 8.2% vs Last Week"; }
+  else if (activeFilter === "Monthly") { stockValue = "₹3.10Cr"; stockTrend = "+4.2% MoM"; turnover = "4.8x"; turnoverTrend = "Optimal"; outstandingTrend = "↑ 8.2% vs Last Month"; }
+  else if (selectedDate) { stockValue = "₹2.15Cr"; stockTrend = "Stable"; turnover = "3.4x"; outstandingTrend = "↑ 8.2% vs Previous Day"; }
+
   const kpiCards = [
     {
-      value: formatCurrency(kpis.totalReceivables),
-      label: "Total Receivables",
+      value: formatCurrency(kpis.totalOutstanding),
+      label: "Total Outstanding Receivables",
       icon: Wallet,
       iconColor: "#D02936",
       iconBg: "rgba(208,41,54,0.12)",
-      trend: "+8.2%",
-      trendUp: true,
+      trend: outstandingTrend,
+      trendUp: false,
     },
     {
-      value: kpis.activeCustomers.toString(),
-      label: "Active Customers",
-      icon: Users,
+      value: stockValue,
+      label: "Current Stock Value",
+      icon: Database,
       iconColor: "#3D7A6B",
       iconBg: "rgba(61,122,107,0.12)",
-      trend: "+3 new",
-      trendUp: true,
+      trend: stockTrend,
+      trendUp: stockTrend.includes('-') ? false : true,
     },
     {
-      value: kpis.invoicesIssued.toString(),
-      label: "Invoices Issued",
-      icon: FileText,
+      value: turnover,
+      label: "Inventory Turnover",
+      icon: RefreshCw,
       iconColor: "#4A90E2",
       iconBg: "rgba(74,144,226,0.12)",
-      trend: "This period",
-      trendUp: null,
+      trend: turnoverTrend,
+      trendUp: true,
     },
     {
       value: kpis.pendingCollections.toString(),
-      label: "Pending Collections",
+      label: "Pending Collection Accounts",
       icon: AlertTriangle,
       iconColor: "#F4A623",
       iconBg: "rgba(244,166,35,0.12)",
@@ -315,6 +378,14 @@ export default function DashboardPage() {
       trendUp: false,
     },
   ];
+
+  let collectionTarget = 500000;
+  let gaugeTitle = "Collection Progress";
+  if (activeFilter === "Today") { collectionTarget = 100000; }
+  else if (activeFilter === "Yesterday") { collectionTarget = 100000; }
+  else if (activeFilter === "Weekly") { collectionTarget = 500000; }
+  else if (activeFilter === "Monthly") { collectionTarget = 2000000; }
+  if (selectedDate) { collectionTarget = 100000; }
 
   return (
     <div className="flex flex-col min-h-full pb-8">
@@ -391,43 +462,47 @@ export default function DashboardPage() {
         {/* Collection Target Gauge */}
         <div className="col-span-1 bg-panel border border-border rounded-2xl p-6 flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:border-accent/30 z-10 hover:z-20">
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs font-bold text-text-muted uppercase tracking-widest">Collection Target</h2>
+            <h2 className="text-xs font-bold text-text-muted uppercase tracking-widest">{gaugeTitle}</h2>
             <span className="text-[10px] text-text-muted bg-white/5 border border-border px-2 py-0.5 rounded-full uppercase tracking-wider">
               {selectedDate ? format(selectedDate, 'dd MMM yyyy') : activeFilter}
             </span>
           </div>
           <div className="flex-1 flex items-center justify-center py-2">
-            <GaugeChart value={kpis.totalReceivables} max={500000} />
+            <GaugeChart value={kpis.collectedAmount} max={collectionTarget} />
           </div>
           {/* Progress bar below gauge */}
+          {/* Progress bar below gauge */}
           <div className="mt-2">
-            <div className="flex justify-between text-[10px] text-text-muted mb-1.5">
-              <span>₹0</span>
-              <span>Target: ₹5,0,000</span>
+            <div className="flex justify-between text-[10px] text-text-muted mb-2 font-bold uppercase tracking-wider">
+              <span>Remaining: ₹{formatCurrency(Math.max(collectionTarget - kpis.collectedAmount, 0)).replace('₹', '')}</span>
+              <span>Target: ₹{formatCurrency(collectionTarget).replace('₹', '')}</span>
             </div>
             <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
               <div
-                className="h-full rounded-full bg-[#F4A623] transition-all duration-700"
-                style={{ width: `${Math.min((kpis.totalReceivables / 500000) * 100, 100)}%` }}
+                className={`h-full rounded-full transition-all duration-700 ${
+                  (kpis.collectedAmount / collectionTarget) < 0.5 ? "bg-[#D02936]" : 
+                  (kpis.collectedAmount / collectionTarget) < 0.75 ? "bg-[#F4A623]" : "bg-[#3D7A6B]"
+                }`}
+                style={{ width: `${Math.min((kpis.collectedAmount / collectionTarget) * 100, 100)}%` }}
               />
             </div>
-            <p className="text-center text-sm font-bold text-text-primary mt-2">
-              {Math.round((kpis.totalReceivables / 500000) * 100)}%{" "}
-              <span className="text-text-muted font-normal text-xs">of target reached</span>
+            <p className="text-center text-[10px] font-bold mt-3 uppercase tracking-widest"
+               style={{ color: (kpis.collectedAmount / collectionTarget) < 0.5 ? "#D02936" : (kpis.collectedAmount / collectionTarget) < 0.75 ? "#F4A623" : "#3D7A6B" }}>
+              {kpis.collectedAmount > collectionTarget ? "TARGET EXCEEDED" : `${Math.round((kpis.collectedAmount / collectionTarget) * 100)}% OF TARGET REACHED`}
             </p>
           </div>
           {/* Color Indicators Legend */}
           <div className="flex justify-between gap-1 text-[9px] text-text-muted uppercase tracking-wider mt-4 pt-3.5 border-t border-border/30">
             <div className="flex items-center gap-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#3D7A6B]" />
-              <span>Safe (&lt;50%)</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-[#D02936]" />
+              <span>Low (&lt;50%)</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-1.5 h-1.5 rounded-full bg-[#F4A623]" />
               <span>Mid (50-75%)</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#D02936]" />
+              <div className="w-1.5 h-1.5 rounded-full bg-[#3D7A6B]" />
               <span>Goal (75%+)</span>
             </div>
           </div>
@@ -500,13 +575,6 @@ export default function DashboardPage() {
               <h2 className="text-xs font-bold text-text-muted uppercase tracking-widest">Upcoming Follow-ups</h2>
               <p className="text-text-primary font-bold text-sm mt-0.5">Overdue Collections</p>
             </div>
-            <button 
-              onClick={() => router.push("/receivables")}
-              className="p-2 text-text-muted hover:text-text-primary hover:bg-white/5 rounded-lg transition-colors"
-              title="Open Receivables Ledger"
-            >
-              <Calendar className="w-4 h-4" />
-            </button>
           </div>
 
           {followUps.length === 0 ? (
@@ -517,9 +585,14 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-3">
               {followUps.map(item => (
-                <div key={item.id} className="flex items-center gap-4 bg-background/40 border border-border rounded-xl p-4 hover:border-accent/30 transition-all group cursor-pointer">
-                  <div className="w-9 h-9 rounded-xl bg-critical/10 border border-critical/20 flex items-center justify-center shrink-0">
-                    <PhoneCall className="w-4 h-4 text-critical" />
+                <div key={item.id} className="flex items-center gap-4 bg-background/40 border border-border rounded-xl p-4 hover:border-accent/30 transition-all group cursor-pointer relative">
+                  <div 
+                    className="w-9 h-9 rounded-xl bg-critical/10 border border-critical/20 flex items-center justify-center shrink-0"
+                    title={item.daysOverdue < 30 ? "Remind" : item.daysOverdue <= 60 ? "Call" : "Escalate"}
+                  >
+                    <span className="text-lg">
+                      {item.daysOverdue < 30 ? "📧" : item.daysOverdue <= 60 ? "📞" : "🚨"}
+                    </span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-bold text-text-primary truncate">{item.client}</h3>
@@ -545,12 +618,12 @@ export default function DashboardPage() {
               <h2 className="text-xs font-bold text-text-muted uppercase tracking-widest">Latest Activity</h2>
               <p className="text-text-primary font-bold text-sm mt-0.5">Recent Transactions</p>
             </div>
-            <button 
-              onClick={() => setIsActivityDrawerOpen(true)}
+            <a 
+              href="/audit"
               className="text-[10px] text-accent hover:text-accent/80 font-bold uppercase tracking-widest flex items-center gap-1 transition-colors"
             >
               See All <ArrowUpRight className="w-3 h-3" />
-            </button>
+            </a>
           </div>
 
           {recentActivities.length === 0 ? (

@@ -40,11 +40,15 @@ async def create_sku(sku_in: SKUCreate, db: AsyncSession = Depends(get_db)):
         await db.refresh(sku)
         
         # Hydrate response
-        sku_dict = sku.__dict__.copy()
-        sku_dict['total_stock'] = 0
-        return sku_dict
+        setattr(sku, 'total_stock', 0)
+        return sku
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        await db.rollback()
+        if "UniqueViolationError" in str(e) or "unique constraint" in str(e).lower():
+            raise HTTPException(status_code=400, detail="SKU code already exists.")
+        raise HTTPException(status_code=400, detail="Failed to create SKU. Please check your inputs.")
 
 @router.get("/skus", response_model=List[SKUResponse])
 async def list_skus(

@@ -148,7 +148,8 @@ export function useCreateSku() {
       try {
         const { data } = await api.post<SKU>('/api/skus', newSku);
         return data;
-      } catch (err) {
+      } catch (err: any) {
+        if (err.response) throw err;
         // High fidelity mock fallback
         const mockSku: SKU = {
           id: Math.floor(Math.random() * 90000) + 10000,
@@ -235,7 +236,8 @@ export function useCreateTransaction() {
       try {
         const { data } = await api.post<StockTransaction>('/api/stock-transactions', txn);
         return data;
-      } catch (err) {
+      } catch (err: any) {
+        if (err.response) throw err;
         // High fidelity mock fallback
         const mockTxn: StockTransaction = {
           id: Math.floor(Math.random() * 90000) + 10000,
