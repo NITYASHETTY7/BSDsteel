@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import {
   useInvoices, useRecordPayment, useSendReminder,
   useCreateInvoice, useCreateCustomer, useCustomers, Invoice
@@ -230,7 +230,8 @@ export default function ReceivablesPage() {
                   const aging = getAgingBucket(inv.due_date);
                   const st = STATUS_CONFIG[inv.status] || STATUS_CONFIG.unpaid;
                   return (
-                    <tr key={inv.id} className="border-b border-border/50 hover:bg-white/[0.02] transition-colors group">
+                    <Fragment key={inv.id}>
+                    <tr className="border-b border-border/50 hover:bg-white/[0.02] transition-colors group">
                       <td className="px-6 py-4 cursor-pointer" onClick={() => inv.items?.length > 0 && setExpandedInvoiceId(expandedInvoiceId === inv.id ? null : inv.id)}>
                         <div className="flex items-center gap-2">
                           {inv.items?.length > 0 ? (
@@ -291,6 +292,38 @@ export default function ReceivablesPage() {
                         </td>
                       )}
                     </tr>
+                    {expandedInvoiceId === inv.id && inv.items && inv.items.length > 0 && (
+                      <tr className="bg-panel border-b border-border/50 animate-in slide-in-from-top-2 duration-200">
+                        <td colSpan={canEdit ? 9 : 8} className="px-10 py-4">
+                          <div className="bg-background/50 rounded-xl p-4 border border-white/5 shadow-inner">
+                            <h4 className="text-[10px] uppercase tracking-widest font-bold text-text-muted mb-3">Line Items</h4>
+                            <table className="w-full text-left text-xs">
+                              <thead>
+                                <tr className="text-text-muted border-b border-white/10 uppercase tracking-widest">
+                                  <th className="py-2 font-bold">Description</th>
+                                  <th className="py-2 font-bold">SI No.</th>
+                                  <th className="py-2 font-bold">T × L × W</th>
+                                  <th className="py-2 font-bold text-right">Sec. Weight</th>
+                                  <th className="py-2 font-bold text-right">Sheets</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {inv.items.map((item, idx) => (
+                                  <tr key={idx} className="border-b border-white/5 last:border-0 text-text-primary">
+                                    <td className="py-2">{item.item_description || "—"}</td>
+                                    <td className="py-2 font-mono text-[10px]">{item.si_no || "—"}</td>
+                                    <td className="py-2 font-mono text-[10px]">{item.t_l_w || "—"}</td>
+                                    <td className="py-2 text-right font-mono text-[10px]">{item.section_weight} kg</td>
+                                    <td className="py-2 text-right font-mono text-[10px]">{item.number_of_sheets}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>
