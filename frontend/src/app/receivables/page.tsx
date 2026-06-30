@@ -108,7 +108,7 @@ export default function ReceivablesPage() {
         {canEdit && (
           <div className="flex items-center gap-3">
             <button
-              onClick={() => invoices && exportInvoices(invoices)}
+              onClick={() => invoices && exportInvoices(invoices as Invoice[])}
               className="flex items-center gap-2 px-4 py-2.5 bg-panel border border-border text-text-muted hover:text-text-primary font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
             >
               <Download className="w-3.5 h-3.5" /> Export
@@ -505,7 +505,7 @@ function CreateInvoiceSlidePanel({ isOpen, onClose }: { isOpen: boolean; onClose
         weight: Number(item.weight), number_of_sheets: Number(item.number_of_sheets),
         weight_per_sheet: Number(item.weight_per_sheet),
       }))
-    }, {
+    } as any, {
       onSuccess: () => { onClose(); setCustomerId(""); setInvoiceNumber(""); setBranch(""); setDueDate(""); setTotalAmount(""); setItems([]); }
     });
   };

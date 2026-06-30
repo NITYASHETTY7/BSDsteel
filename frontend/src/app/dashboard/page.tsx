@@ -541,7 +541,7 @@ export default function DashboardPage() {
               <BarChart data={agingBarData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--color-border))" vertical={false} />
                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'rgb(var(--color-text-muted))', fontSize: 10 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'rgb(var(--color-text-muted))', fontSize: 10 }} tickFormatter={v => `₹${v/1000}k`} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'rgb(var(--color-text-muted))', fontSize: 10 }} tickFormatter={formatCurrency} />
                 <Tooltip
                   contentStyle={{ 
                     backgroundColor: 'rgb(var(--color-panel))', 
@@ -552,10 +552,10 @@ export default function DashboardPage() {
                   }}
                   itemStyle={{ color: 'rgb(var(--color-text-primary))' }}
                   labelStyle={{ color: 'rgb(var(--color-text-muted))' }}
-                  formatter={(v: any) => [`${v} invoices`, '']}
+                  formatter={(v: any) => [formatCurrency(Number(v)), 'Amount']}
                   labelFormatter={l => l}
                 />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={50}>
+                <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={50}>
                   {agingBarData.map((d, i) => (
                     <Cell key={i} fill={d.color} />
                   ))}

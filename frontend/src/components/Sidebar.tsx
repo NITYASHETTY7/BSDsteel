@@ -57,9 +57,19 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 flex flex-col gap-1 mt-4 px-2 pb-4">
-        {!isCollapsed && (
-          <p className="text-[9px] text-text-muted uppercase tracking-widest font-bold px-3 mb-2">Navigation</p>
-        )}
+        {/* Header + Collapse Button */}
+        <div className={`flex items-center mb-2 ${isCollapsed ? 'justify-center' : 'justify-between px-3'}`}>
+          {!isCollapsed && (
+            <p className="text-[9px] text-text-muted uppercase tracking-widest font-bold">Navigation</p>
+          )}
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-1 rounded-md text-text-muted hover:bg-white/5 hover:text-text-primary transition-all duration-200"
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
+        </div>
         {visibleNavItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           const Icon = item.icon;
@@ -83,19 +93,6 @@ export default function Sidebar() {
           );
         })}
 
-        {/* Collapse Button under navigation items */}
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className={`flex items-center gap-3 px-3 py-2.5 mt-auto rounded-lg text-text-muted hover:bg-white/5 hover:text-text-primary transition-all duration-200 ${
-            isCollapsed ? "justify-center" : "justify-start"
-          }`}
-          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-        >
-          {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          {!isCollapsed && (
-            <span className="font-medium text-sm">Collapse Sidebar</span>
-          )}
-        </button>
       </nav>
 
       {/* User Section at Bottom */}

@@ -113,7 +113,12 @@ export default function ReportsPage() {
   }, [invoices]);
 
   const formatCurrency = (val: number) => `₹${val.toLocaleString("en-IN")}`;
-  const formatShort = (val: number) => val > 100000 ? `₹${(val/100000).toFixed(1)}L` : `₹${(val/1000).toFixed(0)}k`;
+  const formatShort = (val: number) => {
+    if (val >= 10000000) return `₹${(val / 10000000).toFixed(1)}Cr`;
+    if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
+    if (val >= 1000) return `₹${(val / 1000).toFixed(1)}k`;
+    return `₹${val}`;
+  };
 
   if (isLoadingInvoices || isLoadingSkus) {
     return (
@@ -223,17 +228,7 @@ export default function ReportsPage() {
           </div>
           <div className="flex-1 min-h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={monthlyTrendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="collected" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3D7A6B" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#3D7A6B" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="outstanding" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#D02936" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#D02936" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
+              <LineChart data={monthlyTrendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A314A" vertical={false} />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 11 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 11 }} tickFormatter={formatShort} />
@@ -243,9 +238,9 @@ export default function ReportsPage() {
                   labelStyle={{ color: '#94A3B8', marginBottom: '4px' }}
                   formatter={(v: unknown) => [formatCurrency(Number(v)), ""]} 
                 />
-                <Area type="monotone" dataKey="collected" stroke="#3D7A6B" strokeWidth={2} fill="url(#collected)" name="Collected" />
-                <Area type="monotone" dataKey="outstanding" stroke="#D02936" strokeWidth={2} fill="url(#outstanding)" name="Outstanding" />
-              </AreaChart>
+                <Line type="monotone" dataKey="collected" stroke="#3D7A6B" strokeWidth={3} dot={{ r: 4, fill: "#3D7A6B", strokeWidth: 2 }} activeDot={{ r: 6 }} name="Collected" />
+                <Line type="monotone" dataKey="outstanding" stroke="#D02936" strokeWidth={3} dot={{ r: 4, fill: "#D02936", strokeWidth: 2 }} activeDot={{ r: 6 }} name="Outstanding" />
+              </LineChart>
             </ResponsiveContainer>
           </div>
           <div className="flex gap-6 mt-3">

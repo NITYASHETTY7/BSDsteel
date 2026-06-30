@@ -36,9 +36,8 @@ export default function Topbar() {
 
   return (
     <header className="h-[57px] bg-panel border-b border-border flex items-center justify-between px-6 shrink-0 z-30 relative print:hidden">
-      {/* Left: Page Name */}
+      {/* Left: Empty or placeholder */}
       <div className="flex items-center gap-4">
-        <span className="text-text-primary font-display font-bold text-sm uppercase tracking-widest">{pageName}</span>
       </div>
 
       {/* Right: Actions */}
