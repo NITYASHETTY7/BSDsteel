@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ── DARK THEME (default) ───────────────────────────── */
+  :root, .theme-neon-dark {
+    --color-background:   18  22  38;   /* #121626 */
+    --color-panel:        26  32  53;   /* #1A2035 */
+    --color-border:       44  52  78;   /* #2C344E */
+    --color-text-primary: 241 245 249;  /* #F1F5F9 */
+    --color-text-muted:   148 163 184;  /* #94A3B8 */
+    --color-accent:       208  41  54;  /* #D02936 */
+    --color-secondary:     51  65  85;  /* #334155 */
+    --color-success:       61 122 107;  /* #3D7A6B */
+    --color-warning:      244 166  35;  /* #F4A623 */
+    --shadow-card: 0 4px 24px rgba(0,0,0,0.35);
+    --shadow-glow: 0 0 20px rgba(208,41,54,0.15);
+  }
+
+  /* ── LIGHT THEME ───────────────────────────────────── */
+  .theme-classic-light {
+    --color-background:   248 249 251;  /* #F8F9FB */
+    --color-panel:        255 255 255;  /* #FFFFFF */
+    --color-border:       220 224 232;  /* #DCE0E8 */
+    --color-text-primary:  15  23  42;  /* #0F172A */
+    --color-text-muted:   100 116 139;  /* #64748B */
+    --color-accent:       208  41  54;  /* #D02936 */
+    --color-secondary:    241 245 249;  /* #F1F5F9 */
+    --color-success:       21 128  61;  /* #15803D */
+    --color-warning:      180 112   0;  /* #B47000 */
+    --shadow-card: 0 2px 12px rgba(0,0,0,0.08);
+    --shadow-glow: 0 0 16px rgba(208,41,54,0.08);
+  }
+
+  /* ── MIDNIGHT BLUE ─────────────────────────────────── */
+  .theme-midnight-blue {
+    --color-background:   15  23  42;   /* #0F172A */
+    --color-panel:        30  41  59;   /* #1E293B */
+    --color-border:       51  65  85;   /* #334155 */
+    --color-text-primary: 248 250 252;  /* #F8FAFC */
+    --color-text-muted:   148 163 184;  /* #94A3B8 */
+    --color-accent:        56 189 248;  /* #38BDF8 */
+    --color-secondary:     71  85 105;  /* #475569 */
+    --color-success:       52 211 153;  /* #34D399 */
+    --color-warning:      251 191  36;  /* #FBBF24 */
+    --shadow-card: 0 4px 24px rgba(0,0,0,0.45);
+    --shadow-glow: 0 0 20px rgba(56,189,248,0.12);
+  }
+
+  /* ── BASE STYLES ───────────────────────────────────── */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-text-primary font-body antialiased;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* Override h1–h6 from global rule so pages can control casing individually */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-bold tracking-wide;
+  }
+
+  /* ── INPUT BASELINE ────────────────────────────────── */
+  input, select, textarea {
+    @apply text-text-primary;
+  }
+
+  /* ── CHROME AUTOFILL FIX ───────────────────────────── */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 40px rgb(var(--color-panel)) inset !important;
+    -webkit-text-fill-color: rgb(var(--color-text-primary)) !important;
+    caret-color: rgb(var(--color-text-primary)) !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  /* ── SCROLLBAR STYLING ─────────────────────────────── */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--color-border));
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--color-text-muted) / 0.6);
+  }
+
+  /* ── SELECT OPTION FIX ─────────────────────────────── */
+  option {
+    background-color: rgb(var(--color-panel));
+    color: rgb(var(--color-text-primary));
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Themed card shadow */
+  .card-shadow {
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Accent glow */
+  .glow-accent {
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* Thin separator line */
+  .separator {
+    @apply w-full h-px bg-border;
+  }
+}
