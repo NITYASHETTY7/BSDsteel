@@ -236,7 +236,7 @@ export default function ReportsPage() {
                   contentStyle={CustomTooltipStyle} 
                   itemStyle={{ color: '#E2E8F0', fontWeight: 'bold' }}
                   labelStyle={{ color: '#94A3B8', marginBottom: '4px' }}
-                  formatter={(value: unknown, name: string) => [formatCurrency(Number(value)), name]}
+                  formatter={(value: any, name: any) => [formatCurrency(Number(value)), name]}
                   itemSorter={(item: any) => -item.value}
                 />
                 <Line type="monotone" dataKey="collected" stroke="#3D7A6B" strokeWidth={3} dot={{ r: 4, fill: "#3D7A6B", strokeWidth: 2 }} activeDot={{ r: 6 }} name="Collected" />
