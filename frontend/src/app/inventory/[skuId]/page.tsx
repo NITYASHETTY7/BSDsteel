@@ -62,6 +62,7 @@ export default function SkuDetailPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [txnType, setTxnType] = useState("inward");
+  const [unitCost, setUnitCost] = useState("");
   const [isEditing, setIsEditing] = useState(false);
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
@@ -95,13 +96,17 @@ export default function SkuDetailPage() {
     if (payload.transaction_type === "inward" || payload.transaction_type === "opening_stock") {
       payload.batch_number = fd.get("batch_number");
       const uc = fd.get("unit_cost");
-      if (uc) payload.unit_cost = parseFloat(uc as string);
+      if (uc) payload.unit_cost = parseFloat((uc as string).replace(/,/g, ''));
     } else {
       payload.batch_id = parseInt(fd.get("batch_id") as string, 10);
     }
 
     createTxn(payload, {
-      onSuccess: () => { setIsTxnPanelOpen(false); showToast("Transaction recorded successfully."); },
+      onSuccess: () => { 
+        setIsTxnPanelOpen(false); 
+        showToast("Transaction recorded successfully."); 
+        setUnitCost(""); 
+      },
       onError: (err: any) => setTxnError(err.response?.data?.detail || "Failed to record transaction"),
     });
   };
@@ -422,7 +427,26 @@ export default function SkuDetailPage() {
           />
 
           {(txnType === "inward" || txnType === "opening_stock") && (
-            <InputField label="Unit Cost ₹ (optional)" name="unit_cost" type="number" step="0.01" placeholder="e.g. 4500.00" />
+            <div className="space-y-1.5">
+              <label className="block text-[10px] text-text-muted uppercase tracking-widest font-bold">Unit Cost ₹ (optional)</label>
+              <input
+                type="text"
+                name="unit_cost"
+                value={unitCost}
+                onChange={e => {
+                  let val = e.target.value.replace(/[^0-9.]/g, '');
+                  const parts = val.split('.');
+                  val = parts[0] + (parts.length > 1 ? '.' + parts[1] : '');
+                  const intPart = parts[0];
+                  const lastThree = intPart.slice(-3);
+                  const other = intPart.slice(0, -3);
+                  const fmtInt = other ? other.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + "," + lastThree : lastThree;
+                  setUnitCost(parts.length > 1 ? `${fmtInt}.${parts[1]}` : fmtInt);
+                }}
+                placeholder="e.g. 4,500.00"
+                className="w-full bg-background border border-border rounded-lg px-3.5 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all placeholder:text-text-muted/40"
+              />
+            </div>
           )}
 
           <InputField label="Reference / PO Number" name="reference_note" type="text" placeholder="PO-2026-00142" />
