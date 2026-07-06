@@ -38,6 +38,7 @@ export default function ReceivablesPage() {
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [agingFilter, setAgingFilter] = useState<string>("all");
+  const [branchFilter, setBranchFilter] = useState<string>("all");
   const { exportInvoices } = usePdfExport();
 
   const { mutate: createInvoice, isPending: isCreatingInvoice } = useCreateInvoice();
@@ -81,6 +82,7 @@ export default function ReceivablesPage() {
     if (!invoices) return [];
     return invoices.filter(inv => {
       if (statusFilter !== "all" && inv.status !== statusFilter) return false;
+      if (branchFilter !== "all" && inv.branch !== branchFilter) return false;
       if (agingFilter !== "all") {
         const days = Math.ceil((new Date().getTime() - new Date(inv.due_date).getTime()) / 86400000);
         if (agingFilter === "current" && days > 0)   return false;
@@ -189,6 +191,18 @@ export default function ReceivablesPage() {
               {s === "all" ? "All" : s.replace("_", " ")}
             </button>
           ))}
+          <div className="w-px h-6 bg-border/50 mx-2"></div>
+          <span className="text-[10px] text-text-muted uppercase tracking-widest font-bold mr-1">Branch:</span>
+          <select
+            value={branchFilter}
+            onChange={(e) => setBranchFilter(e.target.value)}
+            className="bg-background border border-border text-text-primary text-[10px] font-bold uppercase tracking-wider rounded-lg px-2 py-1.5 focus:outline-none focus:border-accent appearance-none cursor-pointer"
+          >
+            <option value="all">All</option>
+            {invoices && Array.from(new Set(invoices.map(i => i.branch).filter(Boolean))).map(b => (
+              <option key={b as string} value={b as string}>{b as string}</option>
+            ))}
+          </select>
           {agingFilter !== "all" && (
             <button
               onClick={() => setAgingFilter("all")}
@@ -497,7 +511,7 @@ function CreateInvoiceSlidePanel({ isOpen, onClose }: { isOpen: boolean; onClose
       customer_name: customerName, // Pass name in case backend supports creating on the fly
       invoice_number: invoiceNumber || `INV-AUTO-${Math.floor(1000 + Math.random() * 9000)}`,
       due_date: new Date(dueDate).toISOString(),
-      total_amount: Number(totalAmount),
+      total_amount: Number(totalAmount.replace(/,/g, '')),
       branch: branch || undefined,
       items: items.map(item => ({
         t_l_w: item.t_l_w, section_weight: Number(item.section_weight),
@@ -556,7 +570,7 @@ function CreateInvoiceSlidePanel({ isOpen, onClose }: { isOpen: boolean; onClose
               </div>
               <div>
                 <label className={labelCls}>Due Date</label>
-                <input type="date" required value={dueDate} onChange={e => setDueDate(e.target.value)} className={inputCls} />
+                <input type="date" required value={dueDate} onChange={e => setDueDate(e.target.value)} className={inputCls} style={{ colorScheme: "dark" }} />
               </div>
             </div>
 
@@ -595,7 +609,23 @@ function CreateInvoiceSlidePanel({ isOpen, onClose }: { isOpen: boolean; onClose
 
             <div className="border-t border-border pt-5">
               <label className={labelCls}>Total Invoice Amount (₹)</label>
-              <input type="number" step="0.01" required value={totalAmount} onChange={e => setTotalAmount(e.target.value)} className={inputCls} placeholder="0.00" />
+              <input 
+                type="text" 
+                required 
+                value={totalAmount} 
+                onChange={e => {
+                  let val = e.target.value.replace(/[^0-9.]/g, '');
+                  const parts = val.split('.');
+                  val = parts[0] + (parts.length > 1 ? '.' + parts[1] : '');
+                  const intPart = parts[0];
+                  const lastThree = intPart.slice(-3);
+                  const other = intPart.slice(0, -3);
+                  const fmtInt = other ? other.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + "," + lastThree : lastThree;
+                  setTotalAmount(parts.length > 1 ? `${fmtInt}.${parts[1]}` : fmtInt);
+                }} 
+                className={inputCls} 
+                placeholder="0.00" 
+              />
             </div>
           </form>
         </div>
