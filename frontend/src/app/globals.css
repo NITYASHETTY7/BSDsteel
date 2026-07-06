@@ -100,6 +100,17 @@
     background-color: rgb(var(--color-panel));
     color: rgb(var(--color-text-primary));
   }
+
+  /* ── PRINT OVERRIDES ───────────────────────────────── */
+  @media print {
+    :root, .theme-neon-dark, .theme-classic-light, .theme-midnight-blue {
+      --color-background:   255 255 255 !important;
+      --color-panel:        255 255 255 !important;
+      --color-border:       200 200 200 !important;
+      --color-text-primary:   0   0   0 !important;
+      --color-text-muted:    80  80  80 !important;
+    }
+  }
 }
 
 @layer utilities {
