@@ -147,7 +147,7 @@ export default function ReportsPage() {
         </div>
         <button 
           onClick={() => window.print()}
-          className="flex items-center gap-2 bg-panel border border-border text-text-muted hover:text-text-primary hover:border-white/20 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+          className="print:hidden flex items-center gap-2 bg-panel border border-border text-text-muted hover:text-text-primary hover:border-white/20 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
         >
           <Download className="w-3.5 h-3.5" />
           Export Report

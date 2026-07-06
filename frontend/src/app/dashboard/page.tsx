@@ -333,22 +333,23 @@ export default function DashboardPage() {
   let stockTrend = "+0.1% DoD";
   let turnover = "3.2x";
   let turnoverTrend = "Steady";
-  let outstandingTrend = "↑ 8.2% vs Yesterday";
+  let outstandingTrend = "↑ 1.2% vs Yesterday";
+  let outstandingTrendUp = false;
 
-  if (activeFilter === "Yesterday") { stockValue = "₹2.25Cr"; stockTrend = "+0.5% DoD"; turnover = "3.6x"; outstandingTrend = "↑ 8.2% vs Previous Day"; }
-  else if (activeFilter === "Weekly") { stockValue = "₹2.60Cr"; stockTrend = "+1.5% WoW"; turnover = "4.2x"; turnoverTrend = "Improving"; outstandingTrend = "↑ 8.2% vs Last Week"; }
-  else if (activeFilter === "Monthly") { stockValue = "₹3.10Cr"; stockTrend = "+4.2% MoM"; turnover = "4.8x"; turnoverTrend = "Optimal"; outstandingTrend = "↑ 8.2% vs Last Month"; }
-  else if (selectedDate) { stockValue = "₹2.15Cr"; stockTrend = "Stable"; turnover = "3.4x"; outstandingTrend = "↑ 8.2% vs Previous Day"; }
+  if (activeFilter === "Yesterday") { stockValue = "₹2.25Cr"; stockTrend = "+0.5% DoD"; turnover = "3.6x"; outstandingTrend = "↑ 0.8% vs Previous Day"; outstandingTrendUp = false; }
+  else if (activeFilter === "Weekly") { stockValue = "₹2.60Cr"; stockTrend = "+1.5% WoW"; turnover = "4.2x"; turnoverTrend = "Improving"; outstandingTrend = "↓ 3.4% vs Last Week"; outstandingTrendUp = true; }
+  else if (activeFilter === "Monthly") { stockValue = "₹3.10Cr"; stockTrend = "+4.2% MoM"; turnover = "4.8x"; turnoverTrend = "Optimal"; outstandingTrend = "↓ 7.1% vs Last Month"; outstandingTrendUp = true; }
+  else if (selectedDate) { stockValue = "₹2.15Cr"; stockTrend = "Stable"; turnover = "3.4x"; outstandingTrend = "↑ 1.1% vs Previous Day"; outstandingTrendUp = false; }
 
   const kpiCards = [
     {
       value: formatCurrency(kpis.totalOutstanding),
       label: "Total Outstanding Receivables",
       icon: Wallet,
-      iconColor: "#D02936",
-      iconBg: "rgba(208,41,54,0.12)",
+      iconColor: outstandingTrendUp ? "#3D7A6B" : "#D02936",
+      iconBg: outstandingTrendUp ? "rgba(61,122,107,0.12)" : "rgba(208,41,54,0.12)",
       trend: outstandingTrend,
-      trendUp: false,
+      trendUp: outstandingTrendUp,
     },
     {
       value: stockValue,
