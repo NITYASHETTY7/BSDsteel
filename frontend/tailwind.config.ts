@@ -29,8 +29,10 @@ const config: Config = {
         card: '16px',
       },
       boxShadow: {
-        card:  'var(--shadow-card)',
-        glow:  'var(--shadow-glow)',
+        card:      'var(--shadow-card)',
+        'card-lg': 'var(--shadow-card-hover)',
+        glow:      'var(--shadow-glow)',
+        'inner-sm':'inset 0 1px 2px rgba(0,0,0,0.06)',
       },
       animation: {
         'fade-in':    'fadeIn 0.25s ease-in-out',
@@ -59,12 +61,6 @@ const config: Config = {
       },
       transitionTimingFunction: {
         'bounce-soft': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
-      },
-      boxShadow: {
-        card:      'var(--shadow-card)',
-        'card-lg': 'var(--shadow-card-hover)',
-        glow:      'var(--shadow-glow)',
-        'inner-sm':'inset 0 1px 2px rgba(0,0,0,0.06)',
       },
     },
   },
