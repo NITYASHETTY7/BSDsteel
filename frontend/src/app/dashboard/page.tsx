@@ -219,13 +219,13 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col min-h-full pb-8">
+      {/* ── Page Title ── */}
+      <h1 className="text-[32px] font-display font-bold text-text-primary leading-tight">Dashboard</h1>
+
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-6 shrink-0">
         <div>
-          <h1 className="text-xl font-display font-bold tracking-widest text-text-primary uppercase leading-none">
-            Dashboard
-          </h1>
-          <p className="text-text-muted text-[13px] mt-1.5">
+          <p className="text-text-muted text-[13px]">
             Welcome back,{" "}
             <span className="text-text-primary font-semibold">{user?.full_name || "User"}</span>
           </p>
@@ -270,27 +270,28 @@ export default function DashboardPage() {
           return (
             <div
               key={i}
-              className="relative overflow-hidden rounded-2xl p-5 group cursor-default"
+              className="relative overflow-hidden rounded-2xl p-5 group cursor-default h-full"
               style={{
                 background: "rgb(var(--color-panel))",
                 border: "1px solid rgb(var(--color-border))",
-                boxShadow: "var(--shadow-card)",
+                boxShadow: `var(--shadow-card), 0 12px 24px ${card.iconColor}30, inset 0 -8px 16px ${card.iconColor}25`,
                 transition: "transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease",
                 zIndex: 10,
               }}
               onMouseEnter={e => {
                 (e.currentTarget as HTMLDivElement).style.transform = "translateY(-3px)";
-                (e.currentTarget as HTMLDivElement).style.boxShadow = "var(--shadow-card-hover)";
+                (e.currentTarget as HTMLDivElement).style.boxShadow = `var(--shadow-card-hover), 0 16px 32px ${card.iconColor}40, inset 0 -8px 16px ${card.iconColor}35`;
                 (e.currentTarget as HTMLDivElement).style.borderColor = `${card.iconColor}40`;
                 (e.currentTarget as HTMLDivElement).style.zIndex = "20";
               }}
               onMouseLeave={e => {
                 (e.currentTarget as HTMLDivElement).style.transform = "";
-                (e.currentTarget as HTMLDivElement).style.boxShadow = "var(--shadow-card)";
+                (e.currentTarget as HTMLDivElement).style.boxShadow = `var(--shadow-card), 0 12px 24px ${card.iconColor}30, inset 0 -8px 16px ${card.iconColor}25`;
                 (e.currentTarget as HTMLDivElement).style.borderColor = "rgb(var(--color-border))";
                 (e.currentTarget as HTMLDivElement).style.zIndex = "10";
               }}
             >
+
               {/* Top color bar */}
               <div
                 className="absolute top-0 left-0 w-full h-[3px] rounded-t-2xl"
@@ -327,15 +328,6 @@ export default function DashboardPage() {
               <div className="text-[10px] text-text-muted uppercase tracking-[0.12em] font-medium leading-relaxed">
                 {card.label}
               </div>
-
-              {/* Bottom accent line */}
-              <div
-                className="absolute bottom-0 left-0 h-[2px] rounded-b-2xl transition-all duration-300"
-                style={{
-                  background: `linear-gradient(90deg, ${card.iconColor}60, ${card.iconColor}20)`,
-                  width: "40%",
-                }}
-              />
             </div>
           );
         })}

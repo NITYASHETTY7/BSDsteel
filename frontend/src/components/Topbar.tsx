@@ -5,14 +5,7 @@ import { Bell, Sun, Moon, Layers } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
 
-const pageNames: Record<string, { label: string; parent?: string }> = {
-  "/dashboard":        { label: "Dashboard" },
-  "/inventory":        { label: "Inventory",          parent: "Operations" },
-  "/receivables":      { label: "Accounts Receivable", parent: "Finance" },
-  "/reports":          { label: "Reports & Analytics", parent: "Finance" },
-  "/settings":         { label: "Settings" },
-  "/notifications":    { label: "Notifications" },
-};
+
 
 const themeConfig: Record<string, { label: string; Icon: React.FC<{ className?: string }> }> = {
   "neon-dark":    { label: "Neon Dark",    Icon: ({ className }) => <Moon    className={className} /> },
@@ -23,7 +16,6 @@ const themeConfig: Record<string, { label: string; Icon: React.FC<{ className?: 
 export default function Topbar() {
   const { theme, setTheme } = useThemeStore();
   const router = useRouter();
-  const pathname = usePathname();
   const [showNotif, setShowNotif] = useState(false);
 
   const cycleTheme = () => {
@@ -31,9 +23,6 @@ export default function Topbar() {
     else if (theme === "classic-light") setTheme("midnight-blue");
     else setTheme("neon-dark");
   };
-
-  const pageInfo = Object.entries(pageNames).find(([key]) => pathname.startsWith(key))?.[1]
-    ?? { label: "BSD Steel" };
 
   const notifications = [
     { id: 1, text: "Larsen & Toubro Ltd overdue balance: ₹2,40,000", time: "2h ago",  dot: "#E11D48" },
@@ -49,11 +38,11 @@ export default function Topbar() {
       className="h-[57px] flex items-center justify-between px-5 shrink-0 z-30 relative print:hidden"
       style={{
         background: "rgb(var(--color-panel))",
-        borderBottom: "1px solid rgb(var(--color-border))",
+        boxShadow: "0 1px 0 rgb(var(--color-border))",
       }}
     >
-      {/* ── Left: empty ── */}
-      <div />
+      {/* ── Left: empty flex to maintain header balance ── */}
+      <div className="flex-1" />
 
       {/* ── Right: Controls ── */}
       <div className="flex items-center gap-1">
@@ -74,7 +63,7 @@ export default function Topbar() {
           title={`Theme: ${themeLabel} — click to switch`}
         >
           <span style={{ color: theme === "midnight-blue" ? "#38BDF8" : theme === "classic-light" ? "#D02936" : "#94A3B8" }}>
-            <ThemeIcon className="w-[15px] h-[15px] transition-transform duration-300 group-hover:rotate-12" />
+            <ThemeIcon className="w-[15px] h-[15px] transition-transform duration-300 group-hover:rotate-12" style={{ transition: "all 0.3s ease" }} />
           </span>
           <span className="text-[11px] font-semibold tracking-wide hidden md:inline">
             {themeLabel}
@@ -96,7 +85,7 @@ export default function Topbar() {
             <Bell className="w-[15px] h-[15px]" />
             {/* Unread dot */}
             <span
-              className="absolute top-1.5 right-1.5 w-[6px] h-[6px] rounded-full"
+              className="absolute top-1.5 right-1.5 w-[6px] h-[6px] rounded-full animate-pulse"
               style={{ background: "rgb(var(--color-accent))", boxShadow: "0 0 0 1.5px rgb(var(--color-panel))" }}
             />
           </button>
@@ -132,9 +121,17 @@ export default function Topbar() {
                   <div
                     key={n.id}
                     className="flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors"
-                    style={{ borderBottom: idx < notifications.length - 1 ? "1px solid rgb(var(--color-border)/0.4)" : "none" }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "rgb(var(--color-border)/0.25)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "")}
+                    style={{ borderBottom: idx < notifications.length - 1 ? "1px solid rgb(var(--color-border)/0.4)" : "none", borderLeft: "none", paddingLeft: "16px" }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = "rgb(var(--color-border)/0.25)";
+                      e.currentTarget.style.borderLeft = "2px solid " + n.dot;
+                      e.currentTarget.style.paddingLeft = "14px";
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = "";
+                      e.currentTarget.style.borderLeft = "none";
+                      e.currentTarget.style.paddingLeft = "16px";
+                    }}
                   >
                     <div
                       className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"

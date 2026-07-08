@@ -23,11 +23,11 @@
 
   /* ── LIGHT THEME ───────────────────────────────────── */
   .theme-classic-light {
-    --color-background:   244 246 250;  /* #F4F6FA */
+    --color-background:   248 249 252;  /* #F8F9FC — slightly cooler white */
     --color-panel:        255 255 255;  /* #FFFFFF */
-    --color-border:       226 230 240;  /* #E2E6F0 */
+    --color-border:       220 225 235;  /* #DCE1EB — improved contrast */
     --color-text-primary:  15  23  42;  /* #0F172A */
-    --color-text-muted:   107 122 144;  /* #6B7A90 */
+    --color-text-muted:   100 116 139;  /* #64748B — slate-500, better contrast */
     --color-accent:       208  41  54;  /* #D02936 */
     --color-secondary:    245 247 252;  /* #F5F7FC */
     --color-success:       22 132  70;  /* #168446 */
@@ -106,7 +106,56 @@
     background: rgb(var(--color-text-muted) / 0.5);
   }
 
+  /* ── ANIMATIONS ──────────────────────────────────────── */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(208,41,54,0); }
+    50%       { box-shadow: 0 0 12px 3px rgba(208,41,54,0.25); }
+  }
+  .animate-slide-up    { animation: slideUp 0.25s ease forwards; }
+  .animate-fade-in     { animation: fadeIn  0.2s  ease forwards; }
+  .animate-slide-right { animation: slideInRight 0.25s ease forwards; }
 
+  /* ── UTILITIES ───────────────────────────────────────── */
+  .card-shadow  { box-shadow: var(--shadow-card); }
+  .card-shadow:hover { box-shadow: var(--shadow-card-hover); transition: box-shadow 0.25s ease; }
+  .glow-accent  { box-shadow: var(--shadow-glow); }
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .glass-panel  {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: rgb(var(--color-panel) / 0.85);
+  }
+  .border-subtle { border-color: rgb(var(--color-border) / 0.6); }
+  .text-gradient {
+    background: linear-gradient(135deg, rgb(var(--color-accent)), #FF6B6B);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── FOCUS STYLES ────────────────────────────────────── */
+  :focus-visible {
+    outline: 2px solid rgb(var(--color-accent) / 0.6);
+    outline-offset: 2px;
+  }
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid rgb(var(--color-accent) / 0.5);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
 
   /* ── PRINT OVERRIDES ───────────────────────────────── */
   @media print {

@@ -9,7 +9,7 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
-        value: postgresql+asyncpg://postgres.jjkilhyzebxjzwzppxbv:%23Bsdsteel%407.@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres
+        value: postgresql+asyncpg://postgres.jjkilhyzebxjzwzppxbv:%23Bsdsteel%407.@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres
       - key: JWT_SECRET_KEY
         value: 8e5f4620634bec876feec393e194e984c7619a9df2f6c06d28c87cb162860945
       - key: JWT_ALGORITHM

@@ -211,8 +211,16 @@ export default function InventoryPage() {
             key={label}
             className={`rounded-3xl p-6 relative overflow-hidden bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-xl ${glow} transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:bg-white/90 dark:hover:bg-slate-900/90 group`}
           >
-            {/* Soft background gradient orb */}
+            {/* Soft background gradient orb top-right */}
             <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full opacity-20 dark:opacity-10 blur-3xl transition-transform duration-500 group-hover:scale-150" style={{ background: color }} />
+
+            {/* Bottom glow line */}
+            <div className="absolute bottom-0 left-4 right-4 h-[2px] rounded-full opacity-60 group-hover:opacity-100 transition-opacity duration-300"
+              style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
+
+            {/* Bottom glow halo */}
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/4 h-8 blur-xl opacity-0 group-hover:opacity-30 transition-opacity duration-500"
+              style={{ background: color }} />
 
             {/* colored left border accent */}
             <div className="absolute left-0 top-6 bottom-6 w-1 rounded-r-full transition-all duration-300 group-hover:w-1.5" style={{ background: color }} />

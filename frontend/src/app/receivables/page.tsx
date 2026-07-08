@@ -47,7 +47,7 @@ export default function ReceivablesPage() {
   const [branchFilter, setBranchFilter] = useState("all");
   const { exportInvoices } = usePdfExport();
   const canEdit = user?.role === "accounts_team" || user?.role === "management";
-  const canRecordPayment = user?.role !== "warehouse_staff"; // anyone except warehouse can record manual payments
+  const canRecordPayment = !user?.role || user?.role !== "warehouse_staff"; // show Actions unless explicitly warehouse_staff
 
   const kpis = useMemo(() => {
     if (!invoices) return { outstanding: 0, overdue: 0, collected: 0, total: 0 };
@@ -235,11 +235,12 @@ export default function ReceivablesPage() {
             <p className="text-xs font-bold uppercase tracking-widest">No invoices match filters</p>
           </div>
         ) : (
-          <table className="w-full text-left">
+          <div className="overflow-x-auto w-full">
+          <table className="w-full text-left min-w-[900px]">
             <thead className="bg-slate-50 dark:bg-slate-800/50">
               <tr>
                 {["Invoice #", "Customer", "Branch", "Due Date", "Aging", "Invoice Amt", "Balance Due", "Status", ...(canRecordPayment ? ["Actions"] : [])].map(h => (
-                  <th key={h} className="px-5 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 whitespace-nowrap">{h}</th>
+                  <th key={h} className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -252,7 +253,7 @@ export default function ReceivablesPage() {
                 return (
                   <Fragment key={inv.id}>
                     <tr className={`border-t border-slate-100 dark:border-slate-800 hover:bg-white dark:hover:bg-slate-800 hover:-translate-y-0.5 hover:shadow-md hover:z-10 hover:relative transition-all duration-150 group ${idx % 2 === 1 ? "bg-slate-50/30 dark:bg-slate-800/10" : ""}`}>
-                      <td className="px-5 py-4 cursor-pointer" onClick={() => inv.items?.length > 0 && setExpandedId(isExpanded ? null : inv.id)}>
+                      <td className="px-4 py-3.5 cursor-pointer" onClick={() => inv.items?.length > 0 && setExpandedId(isExpanded ? null : inv.id)}>
                         <div className="flex items-center gap-2">
                           {inv.items?.length > 0
                             ? isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-accent" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -260,21 +261,21 @@ export default function ReceivablesPage() {
                           <span className="font-mono font-bold text-sm text-slate-800 dark:text-slate-100 hover:text-accent transition-colors">{inv.invoice_number}</span>
                         </div>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-3.5">
                         <p className="font-semibold text-sm text-slate-800 dark:text-slate-100 leading-tight">{inv.customer?.business_name ?? "—"}</p>
                         <p className="text-[10px] text-slate-400 mt-0.5">{inv.customer?.contact_person}</p>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-3.5">
                         {inv.branch
                           ? <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 font-medium"><Building2 className="w-3 h-3" />{inv.branch}</span>
                           : <span className="text-slate-300 dark:text-slate-600">—</span>}
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-3.5">
                         <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-mono">
                           <Calendar className="w-3 h-3" />{format(new Date(inv.due_date), "dd MMM yyyy")}
                         </span>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-3.5">
                         {inv.status === "paid" ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10">
                             <CheckCircle className="w-2.5 h-2.5" /> Cleared
@@ -286,30 +287,34 @@ export default function ReceivablesPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-5 py-4 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 text-right">
+                      <td className="px-4 py-3.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 text-right whitespace-nowrap">
                         ₹{Number(inv.total_amount).toLocaleString("en-IN")}
                       </td>
-                      <td className="px-5 py-4 text-right">
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
                         <span className="font-mono font-extrabold text-sm" style={{ color: bal > 0 ? "#EF4444" : "#10B981" }}>
                           ₹{bal.toLocaleString("en-IN")}
                         </span>
                       </td>
-                      <td className="px-5 py-4">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider"
+                      <td className="px-4 py-3.5">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap"
                           style={{ background: st.bg, color: st.color, boxShadow: `0 0 0 1px ${st.ring}` }}>
                           {st.label}
                         </span>
                       </td>
                       {canRecordPayment && (
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {inv.status !== "paid" && (
-                              <button onClick={() => setSelectedInvoice(inv as any)}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-accent/10 border border-accent/30 text-accent font-bold text-[10px] uppercase tracking-wider hover:bg-accent/20 transition-colors">
-                                <ArrowUpRight className="w-3 h-3" /> Pay
-                              </button>
-                            )}
-                          </div>
+                        <td className="px-4 py-3.5">
+                          {inv.status !== "paid" ? (
+                            <button onClick={() => setSelectedInvoice(inv as any)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all whitespace-nowrap"
+                              style={{ background: "rgb(var(--color-accent)/0.1)", color: "rgb(var(--color-accent))", border: "1px solid rgb(var(--color-accent)/0.3)" }}
+                              onMouseEnter={e => (e.currentTarget.style.background = "rgb(var(--color-accent)/0.2)")}
+                              onMouseLeave={e => (e.currentTarget.style.background = "rgb(var(--color-accent)/0.1)")}
+                            >
+                              <ArrowUpRight className="w-3 h-3" /> Record Pay
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-medium">—</span>
+                          )}
                         </td>
                       )}
                     </tr>
@@ -345,6 +350,7 @@ export default function ReceivablesPage() {
               })}
             </tbody>
           </table>
+        </div>
         )}
 
         {/* Footer */}
@@ -394,7 +400,28 @@ function PaymentSlidePanel({ invoice, isOpen, onClose }: { invoice: Invoice | nu
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
           <div><label className={labelCls}>Amount Received (₹)</label>
-            <input type="number" step="0.01" required max={balance} value={amount} onChange={e => setAmount(e.target.value)} className={inputCls} placeholder={`Max: ₹${balance.toLocaleString("en-IN")}`} />
+            <input
+              type="text"
+              inputMode="decimal"
+              required
+              value={amount}
+              onChange={e => {
+                // Strip non-numeric except dot
+                let raw = e.target.value.replace(/[^0-9.]/g, "");
+                if (!raw) {
+                  setAmount("");
+                  return;
+                }
+                const parts = raw.split(".");
+                const intPart = parts[0].replace(/^0+/, "") || "0";
+                const decPart = parts.length > 1 ? "." + parts.slice(1).join("") : "";
+                // Indian comma formatting: XX,XX,XXX
+                const formatted = Number(intPart).toLocaleString("en-IN");
+                setAmount(formatted + decPart);
+              }}
+              className={inputCls}
+              placeholder={`Max: ₹${balance.toLocaleString("en-IN")}`}
+            />
           </div>
           <div><label className={labelCls}>Payment Method</label>
             <select value={method} onChange={e => setMethod(e.target.value)} className={inputCls + " appearance-none cursor-pointer"}>
@@ -406,8 +433,16 @@ function PaymentSlidePanel({ invoice, isOpen, onClose }: { invoice: Invoice | nu
           </div>
         </div>
         <div className="px-6 py-5 border-t border-slate-100 dark:border-slate-800">
-          <button onClick={(e) => { e.preventDefault(); if (!amount) return; recordPayment({ invoiceId: invoice.id, paymentData: { invoice_id: invoice.id, amount: Number(amount), payment_method: method } }, { onSuccess: () => { onClose(); setAmount(""); } }); }}
-            disabled={isPending || !amount || Number(amount) <= 0 || Number(amount) > balance}
+          <button onClick={(e) => {
+            e.preventDefault();
+            if (!amount) return;
+            const numericAmount = Number(amount.replace(/,/g, ""));
+            recordPayment(
+              { invoiceId: invoice.id, paymentData: { invoice_id: invoice.id, amount: numericAmount, payment_method: method } },
+              { onSuccess: () => { onClose(); setAmount(""); } }
+            );
+          }}
+            disabled={isPending || !amount || Number(amount.replace(/,/g,"")) <= 0 || Number(amount.replace(/,/g,"")) > balance}
             className="w-full bg-accent text-white font-bold uppercase tracking-widest py-3.5 rounded-xl hover:bg-accent/90 shadow-lg shadow-accent/20 transition-all disabled:opacity-50 text-sm">
             {isPending ? "Recording…" : "Record Payment"}
           </button>

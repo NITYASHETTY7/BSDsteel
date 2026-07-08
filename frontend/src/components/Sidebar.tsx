@@ -46,6 +46,10 @@ export default function Sidebar() {
         borderRight: "1px solid rgb(var(--color-border))",
       }}
     >
+      {/* ── Top accent line ── */}
+      <div className="absolute top-0 left-0 right-0 h-[2px]"
+        style={{ background: 'linear-gradient(90deg, rgb(var(--color-accent)/0.8), rgb(var(--color-accent)/0.2), transparent)' }}
+      />
       {/* ── Logo / Brand ── */}
       <div className={`relative flex items-center h-[57px] shrink-0 overflow-hidden px-4 gap-3`}
         style={{ borderBottom: "1px solid rgb(var(--color-border))" }}>
@@ -64,6 +68,10 @@ export default function Sidebar() {
             </p>
           </div>
         )}
+        {/* Subtle gradient line at bottom of brand header */}
+        <div className="absolute bottom-0 left-0 right-0 h-px"
+          style={{ background: 'linear-gradient(90deg, rgb(var(--color-accent)/0.6), transparent)' }}
+        />
       </div>
 
       {/* ── Navigation ── */}
@@ -85,8 +93,8 @@ export default function Sidebar() {
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {isCollapsed
-              ? <ChevronRight className="w-3.5 h-3.5" />
-              : <ChevronLeft  className="w-3.5 h-3.5" />
+              ? <ChevronRight className="w-3.5 h-3.5" style={{ transition: 'transform 0.2s ease' }} />
+              : <ChevronLeft  className="w-3.5 h-3.5" style={{ transition: 'transform 0.2s ease' }} />
             }
           </button>
         </div>
@@ -110,7 +118,8 @@ export default function Sidebar() {
                 style={isActive ? {
                   background: "rgb(var(--color-accent))",
                   boxShadow: "0 2px 12px rgba(208,41,54,0.30)",
-                } : {}}
+                  transition: "all 0.2s ease",
+                } : { transition: "all 0.15s ease" }}
                 onMouseEnter={e => {
                   if (!isActive) e.currentTarget.style.background = "rgb(var(--color-border)/0.35)";
                 }}
@@ -150,7 +159,7 @@ export default function Sidebar() {
             title={isCollapsed ? user.full_name : undefined}
           >
             {/* Avatar */}
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-transform duration-200 group-hover:scale-105"
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-all duration-200 group-hover:scale-105 group-hover:ring-2 group-hover:ring-accent/40"
               style={{
                 background: "rgba(208,41,54,0.15)",
                 border: "1.5px solid rgba(208,41,54,0.35)",
