@@ -56,6 +56,7 @@ async def run_async_migrations() -> None:
         section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args={"statement_cache_size": 0} if db_url and "supabase.com" in db_url else {},
     )
 
     async with connectable.connect() as connection:
