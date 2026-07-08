@@ -63,7 +63,7 @@ export default function Topbar() {
           title={`Theme: ${themeLabel} — click to switch`}
         >
           <span style={{ color: theme === "midnight-blue" ? "#38BDF8" : theme === "classic-light" ? "#D02936" : "#94A3B8" }}>
-            <ThemeIcon className="w-[15px] h-[15px] transition-transform duration-300 group-hover:rotate-12" style={{ transition: "all 0.3s ease" }} />
+            <ThemeIcon className="w-[15px] h-[15px] transition-transform duration-300 group-hover:rotate-12" />
           </span>
           <span className="text-[11px] font-semibold tracking-wide hidden md:inline">
             {themeLabel}
