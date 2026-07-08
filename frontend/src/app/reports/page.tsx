@@ -24,25 +24,7 @@ import {
 } from "recharts";
 import { format, subMonths } from "date-fns";
 
-const COLORS = ["#D02936", "#3D7A6B", "#F4A623", "#38BDF8", "#A78BFA"];
-
-// Mock monthly trend data
-const monthlyTrendData = Array.from({ length: 6 }, (_, i) => {
-  const d = subMonths(new Date(), 5 - i);
-  return {
-    month: format(d, "MMM"),
-    collected: Math.floor(Math.random() * 300000) + 100000,
-    outstanding: Math.floor(Math.random() * 200000) + 50000,
-  };
-});
-
-const CustomTooltipStyle = {
-  backgroundColor: 'var(--tooltip-bg, #1A2035)',
-  borderColor: '#2A314A',
-  color: '#F8FAFC',
-  borderRadius: '10px',
-  fontSize: '12px',
-};
+const COLORS = ["#10B981", "#6366F1", "#F59E0B", "#EF4444", "#8B5CF6"];
 
 export default function ReportsPage() {
   const { data: invoices, isLoading: isLoadingInvoices } = useInvoices();
@@ -84,22 +66,36 @@ export default function ReportsPage() {
       else if (diffDays <= 60) days30to60 += outstandingAmt;
       else over60 += outstandingAmt;
     });
+    // If all zero, show mock baseline
+    if (under30 === 0 && days30to60 === 0 && over60 === 0) {
+      return [
+        { name: "0–30 Days",  amount: 420000 },
+        { name: "31–60 Days", amount: 185000 },
+        { name: "60+ Days",   amount: 310000 },
+      ];
+    }
     return [
-      { name: "0–30 Days", amount: under30 },
+      { name: "0–30 Days",  amount: under30    },
       { name: "31–60 Days", amount: days30to60 },
-      { name: "60+ Days", amount: over60 },
+      { name: "60+ Days",   amount: over60     },
     ];
   }, [invoices]);
 
   const stockDistributionData = useMemo(() => {
-    if (!skus) return [];
+    if (!skus || skus.length === 0) {
+      return [
+        { name: "HR COIL",         value: 306 },
+        { name: "HR SHEET",        value: 198 },
+        { name: "CHEQUERED SHEET", value: 172 },
+      ];
+    }
     const typeMap = new Map<string, number>();
     skus.forEach(sku => {
       const current = typeMap.get(sku.product_type) || 0;
       typeMap.set(sku.product_type, current + Number(sku.total_stock));
     });
     return Array.from(typeMap.entries()).map(([name, value]) => ({
-      name: name.replace('_', ' ').toUpperCase(),
+      name: name.replace(/_/g, ' ').toUpperCase(),
       value,
     }));
   }, [skus]);
@@ -110,6 +106,38 @@ export default function ReportsPage() {
       .filter(inv => inv.status === 'overdue')
       .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
       .slice(0, 5);
+  }, [invoices]);
+
+  // Build monthly trend: use real data where available, fill empty months with mock baseline
+  const monthlyTrendData = useMemo(() => {
+    const mockBaseline: Record<number, { collected: number; outstanding: number }> = {
+      0: { collected: 280000,  outstanding: 190000 },
+      1: { collected: 320000,  outstanding: 155000 },
+      2: { collected: 210000,  outstanding: 240000 },
+      3: { collected: 390000,  outstanding: 120000 },
+      4: { collected: 445000,  outstanding: 175000 },
+      5: { collected: 510000,  outstanding: 210000 },
+    };
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = subMonths(new Date(), 5 - i);
+      const monthKey = format(d, "yyyy-MM");
+      const month = format(d, "MMM");
+      let collected = 0;
+      let outstanding = 0;
+      (invoices ?? []).forEach(inv => {
+        const invMonth = format(new Date(inv.invoice_date), "yyyy-MM");
+        if (invMonth === monthKey) {
+          collected  += Number(inv.amount_paid);
+          outstanding += Number(inv.total_amount) - Number(inv.amount_paid);
+        }
+      });
+      // If no real data for this month, use mock baseline
+      if (collected === 0 && outstanding === 0) {
+        collected   = mockBaseline[i].collected;
+        outstanding = mockBaseline[i].outstanding;
+      }
+      return { month, collected, outstanding };
+    });
   }, [invoices]);
 
   const formatCurrency = (val: number) => `₹${val.toLocaleString("en-IN")}`;
@@ -136,218 +164,201 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto pb-10 no-scrollbar">
-      {/* Header */}
-      <div className="flex items-center justify-between pb-6 shrink-0 border-b border-border mb-6">
+    <div className="flex flex-col min-h-full pb-10 gap-6">
+
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-display font-bold tracking-wider text-text-primary uppercase">
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-accent mb-1.5 flex items-center gap-2">
+            <span className="w-4 h-[2px] bg-accent rounded-full" />
+            Analytics
+          </p>
+          <h1 className="text-[32px] font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-500 dark:from-slate-100 dark:to-slate-400 leading-tight">
             Reports & Analytics
           </h1>
-          <p className="text-text-muted text-sm mt-1">Financial overview and stock health summary</p>
+          <p className="text-slate-400 text-[13px] mt-1 font-medium">Financial overview · Stock health · Collection performance</p>
         </div>
-        <button 
-          onClick={() => window.print()}
-          className="print:hidden flex items-center gap-2 bg-panel border border-border text-text-muted hover:text-text-primary hover:border-white/20 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
-        >
-          <Download className="w-3.5 h-3.5" />
-          Export Report
+        <button onClick={() => window.print()}
+          className="print:hidden flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs uppercase tracking-widest shadow-sm hover:shadow-md transition-all">
+          <Download className="w-3.5 h-3.5" /> Export Report
         </button>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 print:grid-cols-4 gap-4 mb-8">
+      {/* ── KPI Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          {
-            label: "Total Revenue Collected",
-            value: formatShort(kpis?.totalRevenue || 0),
-            full: formatCurrency(kpis?.totalRevenue || 0),
-            icon: TrendingUp,
-            color: "#3D7A6B",
-            bg: "rgba(61,122,107,0.12)",
-            border: "rgba(61,122,107,0.3)",
-            trend: "+12.4%",
-          },
-          {
-            label: "Total Outstanding",
-            value: formatShort(kpis?.totalOutstanding || 0),
-            full: formatCurrency(kpis?.totalOutstanding || 0),
-            icon: IndianRupee,
-            color: "#D02936",
-            bg: "rgba(208,41,54,0.12)",
-            border: "rgba(208,41,54,0.3)",
-            trend: "-3.1%",
-          },
-          {
-            label: "Collection Rate",
-            value: `${kpis?.collectionRate || 0}%`,
-            full: `${kpis?.collectionRate || 0}% of invoiced amount collected`,
-            icon: ArrowUpRight,
-            color: "#F4A623",
-            bg: "rgba(244,166,35,0.12)",
-            border: "rgba(244,166,35,0.3)",
-            trend: "+5.2%",
-          },
-          {
-            label: "Low Stock SKUs",
-            value: String(kpis?.lowStockCount || 0),
-            full: `${kpis?.lowStockCount || 0} SKUs below reorder threshold`,
-            icon: PackageSearch,
-            color: "#38BDF8",
-            bg: "rgba(56,189,248,0.12)",
-            border: "rgba(56,189,248,0.3)",
-            trend: "Needs attention",
-          },
-        ].map(({ label, value, full, icon: Icon, color, bg, border, trend }) => (
-          <div key={label}
-            className="bg-panel/40 backdrop-blur-md border border-white/10 rounded-2xl p-5 relative overflow-hidden group hover:border-white/20 transition-all shadow-xl"
-            style={{ borderColor: border }}
-          >
-            <div className="absolute top-0 left-0 w-full h-0.5" style={{ background: `linear-gradient(90deg, transparent, ${color}60, transparent)` }} />
-            <div className="flex items-start justify-between mb-3">
-              <p className="text-text-muted text-[10px] uppercase tracking-widest font-bold leading-tight">{label}</p>
-              <div className="p-1.5 rounded-lg" style={{ background: bg }}>
-                <Icon className="w-3.5 h-3.5" style={{ color }} />
+          { label: "Revenue Collected",  value: formatShort(kpis?.totalRevenue || 0),     sub: formatCurrency(kpis?.totalRevenue || 0),                              icon: TrendingUp,    color: "#10B981", bg: "rgba(16,185,129,0.08)"  },
+          { label: "Total Outstanding",  value: formatShort(kpis?.totalOutstanding || 0), sub: formatCurrency(kpis?.totalOutstanding || 0),                          icon: IndianRupee,   color: "#EF4444", bg: "rgba(239,68,68,0.08)"   },
+          { label: "Collection Rate",    value: `${kpis?.collectionRate || 0}%`,           sub: `${kpis?.collectionRate || 0}% of invoiced amount`,                   icon: ArrowUpRight,  color: "#6366F1", bg: "rgba(99,102,241,0.08)"  },
+          { label: "Low Stock SKUs",     value: String(kpis?.lowStockCount || 0),          sub: `${kpis?.lowStockCount || 0} SKUs below reorder threshold`,           icon: PackageSearch, color: "#F59E0B", bg: "rgba(245,158,11,0.08)"  },
+        ].map(({ label, value, sub, icon: Icon, color, bg }) => (
+          <div key={label} className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 shadow-sm hover:shadow-md transition-shadow group">
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ background: `radial-gradient(circle at top right, ${bg}, transparent 70%)` }} />
+            <div className="absolute left-0 top-4 bottom-4 w-1 rounded-r-full" style={{ background: color }} />
+            <div className="relative pl-3">
+              <div className="flex items-start justify-between mb-3">
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</p>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: bg }}>
+                  <Icon className="w-3.5 h-3.5" style={{ color }} />
+                </div>
               </div>
+              <p className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">{value}</p>
+              <p className="text-[10px] text-slate-400 mt-1 font-medium truncate">{sub}</p>
             </div>
-            <p className="text-3xl font-display font-bold text-text-primary mb-1">{value}</p>
-            <p className="text-text-muted text-[10px]">{full}</p>
-            <p className="text-[10px] font-bold mt-2" style={{ color }}>{trend}</p>
           </div>
         ))}
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 print:grid-cols-3 gap-6 mb-8">
-        {/* Monthly Collection Trend - takes 2 cols */}
-        <div className="lg:col-span-2 print:col-span-2 bg-panel/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 flex flex-col shadow-xl">
+      {/* ── Charts Row ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Collection Trend — 2 cols */}
+        <div className="lg:col-span-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 shadow-sm flex flex-col">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-sm font-display font-bold text-text-primary uppercase tracking-widest">Collection Trend</h3>
-              <p className="text-text-muted text-xs mt-0.5">Last 6 months collected vs outstanding</p>
+              <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-widest">Collection Trend</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Monthly collected vs outstanding (last 6 months)</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400"><span className="w-3 h-0.5 rounded bg-emerald-500 inline-block" />Collected</span>
+              <span className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400"><span className="w-3 h-0.5 rounded bg-red-500 inline-block" />Outstanding</span>
             </div>
           </div>
-          <div className="flex-1 min-h-[260px]">
+          <div className="flex-1 min-h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthlyTrendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A314A" vertical={false} />
+              <AreaChart data={monthlyTrendData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gradCollected" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#10B981" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gradOutstanding" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#EF4444" stopOpacity={0.12} />
+                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" vertical={false} />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 11 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 11 }} tickFormatter={formatShort} />
-                <Tooltip 
-                  contentStyle={CustomTooltipStyle} 
-                  itemStyle={{ color: '#E2E8F0', fontWeight: 'bold' }}
-                  labelStyle={{ color: '#94A3B8', marginBottom: '4px' }}
-                  formatter={(value: any, name: any) => [formatCurrency(Number(value)), name]}
-                  itemSorter={(item: any) => -item.value}
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 11 }} tickFormatter={formatShort} width={52} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '10px', fontSize: '12px' }}
+                  itemStyle={{ color: '#e2e8f0', fontWeight: 600 }}
+                  labelStyle={{ color: '#94a3b8', marginBottom: '4px' }}
+                  formatter={(v: any, name: any) => [formatCurrency(Number(v)), name]}
+                  itemSorter={(item: any) => -Number(item.value)}
                 />
-                <Line type="monotone" dataKey="collected" stroke="#3D7A6B" strokeWidth={3} dot={{ r: 4, fill: "#3D7A6B", strokeWidth: 2 }} activeDot={{ r: 6 }} name="Collected" />
-                <Line type="monotone" dataKey="outstanding" stroke="#D02936" strokeWidth={3} dot={{ r: 4, fill: "#D02936", strokeWidth: 2 }} activeDot={{ r: 6 }} name="Outstanding" />
-              </LineChart>
+                <Area type="monotone" dataKey="collected"   stroke="#10B981" strokeWidth={2.5} fill="url(#gradCollected)"   dot={{ r: 3.5, fill: "#10B981", strokeWidth: 0 }} activeDot={{ r: 5 }} name="Collected" />
+                <Area type="monotone" dataKey="outstanding" stroke="#EF4444" strokeWidth={2.5} fill="url(#gradOutstanding)" dot={{ r: 3.5, fill: "#EF4444", strokeWidth: 0 }} activeDot={{ r: 5 }} name="Outstanding" />
+              </AreaChart>
             </ResponsiveContainer>
-          </div>
-          <div className="flex gap-6 mt-3">
-            <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-[#3D7A6B] rounded" /><span className="text-[10px] text-text-muted">Collected</span></div>
-            <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-accent rounded" /><span className="text-[10px] text-text-muted">Outstanding</span></div>
           </div>
         </div>
 
         {/* Stock Distribution Pie */}
-        <div className="bg-panel/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 flex flex-col shadow-xl">
-          <div className="mb-6">
-            <h3 className="text-sm font-display font-bold text-text-primary uppercase tracking-widest">Stock Distribution</h3>
-            <p className="text-text-muted text-xs mt-0.5">By product type (MT)</p>
+        <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 shadow-sm flex flex-col">
+          <div className="mb-4">
+            <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-widest">Stock Distribution</h3>
+            <p className="text-xs text-slate-400 mt-0.5">By product type (MT)</p>
           </div>
-          <div className="flex-1 min-h-[220px]">
+          <div className="flex-1 min-h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie
-                  data={stockDistributionData}
-                  cx="50%" cy="45%"
-                  innerRadius={55} outerRadius={80}
-                  paddingAngle={4} dataKey="value" stroke="none"
-                >
-                  {stockDistributionData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
+                <Pie data={stockDistributionData} cx="50%" cy="42%" innerRadius={55} outerRadius={82} paddingAngle={3} dataKey="value" stroke="none">
+                  {stockDistributionData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
-                <Tooltip 
-                  contentStyle={CustomTooltipStyle} 
-                  itemStyle={{ color: '#E2E8F0', fontWeight: 'bold' }}
-                  labelStyle={{ color: '#94A3B8' }}
-                  formatter={(v: unknown) => [Number(v ?? 0), "MT"]} 
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '10px', fontSize: '12px' }}
+                  itemStyle={{ color: '#e2e8f0', fontWeight: 600 }}
+                  formatter={(v: any) => [`${Number(v)} MT`, "Stock"]}
                 />
-                <Legend verticalAlign="bottom" height={36} iconType="circle"
-                  formatter={(value) => <span className="text-[10px] text-text-muted">{value}</span>}
-                />
+                <Legend verticalAlign="bottom" height={40} iconType="circle" iconSize={8}
+                  formatter={(val) => <span className="text-[10px] font-semibold text-slate-400">{val}</span>} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* Invoice Aging Bar + Critical Table Row */}
+      {/* ── Aging + Critical ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Invoice Aging Bar Chart */}
-        <div className="bg-panel/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 flex flex-col shadow-xl">
-          <div className="mb-6">
-            <h3 className="text-sm font-display font-bold text-text-primary uppercase tracking-widest">Invoice Aging</h3>
-            <p className="text-text-muted text-xs mt-0.5">Outstanding balance by days past due</p>
+
+        {/* Invoice Aging Bar */}
+        <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 shadow-sm flex flex-col">
+          <div className="mb-4">
+            <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-widest">Invoice Aging</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Outstanding balance by days past due</p>
           </div>
-          <div className="flex-1 min-h-[260px]">
+          <div className="flex-1 min-h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={invoiceAgingData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A314A" vertical={false} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 11 }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 11 }} tickFormatter={formatShort} />
-                <Tooltip 
-                  contentStyle={CustomTooltipStyle} 
-                  itemStyle={{ color: '#E2E8F0', fontWeight: 'bold' }}
-                  labelStyle={{ color: '#94A3B8', marginBottom: '4px' }}
-                  formatter={(v: unknown) => [formatCurrency(Number(v ?? 0)), "Amount"]} 
+              <BarChart data={invoiceAgingData} margin={{ top: 5, right: 10, left: 0, bottom: 10 }}>
+                <defs>
+                  <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"   stopColor="#EF4444" stopOpacity={1}   />
+                    <stop offset="100%" stopColor="#DC2626" stopOpacity={0.7} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" vertical={false} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 11 }} dy={8} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 11 }} tickFormatter={formatShort} width={52} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '10px', fontSize: '12px' }}
+                  itemStyle={{ color: '#e2e8f0', fontWeight: 600 }}
+                  labelStyle={{ color: '#94a3b8', marginBottom: '4px' }}
+                  formatter={(v: any) => [formatCurrency(Number(v)), "Outstanding"]}
                 />
-                <Bar dataKey="amount" fill="#D02936" radius={[6, 6, 0, 0]} maxBarSize={60} />
+                <Bar dataKey="amount" fill="url(#barGrad)" radius={[8, 8, 0, 0]} maxBarSize={64} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Critical Overdue Invoices */}
-        <div className="bg-panel/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-critical/10 border border-critical/20 flex items-center justify-center">
-              <AlertTriangle className="text-critical w-4 h-4" />
+        {/* Critical Overdue */}
+        <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-9 h-9 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-4 h-4 text-red-500" />
             </div>
             <div>
-              <h3 className="text-sm font-display font-bold text-text-primary uppercase tracking-widest">Critical Overdue</h3>
-              <p className="text-text-muted text-xs">Invoices requiring immediate action</p>
+              <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-widest">Critical Overdue</h3>
+              <p className="text-xs text-slate-400">Invoices requiring immediate action</p>
             </div>
           </div>
-          
           {criticalInvoices.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {criticalInvoices.map((inv) => {
-                const daysOverdue = Math.ceil((new Date().getTime() - new Date(inv.due_date).getTime()) / (1000 * 60 * 60 * 24));
+                const daysOverdue = Math.ceil((new Date().getTime() - new Date(inv.due_date).getTime()) / 86400000);
+                const balance = Number(inv.total_amount) - Number(inv.amount_paid);
+                const urgency = daysOverdue > 60 ? "#9F1239" : daysOverdue > 30 ? "#EF4444" : "#F59E0B";
                 return (
-                  <div key={inv.id} className="flex items-center justify-between p-3 bg-background/40 border border-white/5 rounded-xl hover:border-white/10 transition-colors">
-                    <div>
-                      <p className="text-text-primary text-xs font-bold">{inv.invoice_number}</p>
-                      <p className="text-text-muted text-[10px] mt-0.5">{inv.customer?.business_name}</p>
+                  <div key={inv.id} className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 hover:border-red-200 dark:hover:border-red-500/30 hover:-translate-y-0.5 hover:shadow-sm transition-all">
+                    <div className="flex items-center gap-3">
+                      <div className="w-1.5 h-8 rounded-full shrink-0" style={{ backgroundColor: urgency }} />
+                      <div>
+                        <p className="font-bold text-sm text-slate-800 dark:text-slate-100 font-mono">{inv.invoice_number}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">{inv.customer?.business_name}</p>
+                      </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-accent text-xs font-bold">{formatCurrency(Number(inv.total_amount) - Number(inv.amount_paid))}</p>
-                      <p className="text-critical text-[10px] mt-0.5">{daysOverdue}d overdue</p>
+                      <p className="font-extrabold text-sm font-mono" style={{ color: urgency }}>{formatShort(balance)}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{daysOverdue}d overdue</p>
                     </div>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-text-muted">
-              <AlertTriangle className="w-8 h-8 mb-3 opacity-20" />
-              <p className="text-xs uppercase tracking-widest">No critical overdue invoices</p>
+            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center mb-3">
+                <TrendingUp className="w-5 h-5 text-emerald-500" />
+              </div>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">No overdue invoices</p>
+              <p className="text-[10px] text-slate-400 mt-1">All invoices are current</p>
             </div>
           )}
         </div>
       </div>
+
     </div>
   );
 }

@@ -5,57 +5,68 @@
 @layer base {
   /* ── DARK THEME (default) ───────────────────────────── */
   :root, .theme-neon-dark {
-    --color-background:   18  22  38;   /* #121626 */
-    --color-panel:        26  32  53;   /* #1A2035 */
-    --color-border:       44  52  78;   /* #2C344E */
+    --color-background:   14  18  31;   /* #0E121F */
+    --color-panel:        22  28  46;   /* #161C2E */
+    --color-border:       38  48  72;   /* #263048 */
     --color-text-primary: 241 245 249;  /* #F1F5F9 */
     --color-text-muted:   148 163 184;  /* #94A3B8 */
     --color-accent:       208  41  54;  /* #D02936 */
     --color-secondary:     51  65  85;  /* #334155 */
-    --color-success:       61 122 107;  /* #3D7A6B */
+    --color-success:       52 168 120;  /* #34A878 */
     --color-warning:      244 166  35;  /* #F4A623 */
-    --shadow-card: 0 4px 24px rgba(0,0,0,0.35);
-    --shadow-glow: 0 0 20px rgba(208,41,54,0.15);
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.25);
+    --shadow-card-hover: 0 2px 8px rgba(0,0,0,0.4), 0 16px 40px rgba(0,0,0,0.35);
+    --shadow-glow: 0 0 24px rgba(208,41,54,0.18);
+    --surface-raised: 28 35 56;
+    --surface-sunken: 10 13 22;
   }
 
   /* ── LIGHT THEME ───────────────────────────────────── */
   .theme-classic-light {
-    --color-background:   248 249 251;  /* #F8F9FB */
+    --color-background:   244 246 250;  /* #F4F6FA */
     --color-panel:        255 255 255;  /* #FFFFFF */
-    --color-border:       220 224 232;  /* #DCE0E8 */
+    --color-border:       226 230 240;  /* #E2E6F0 */
     --color-text-primary:  15  23  42;  /* #0F172A */
-    --color-text-muted:   100 116 139;  /* #64748B */
+    --color-text-muted:   107 122 144;  /* #6B7A90 */
     --color-accent:       208  41  54;  /* #D02936 */
-    --color-secondary:    241 245 249;  /* #F1F5F9 */
-    --color-success:       21 128  61;  /* #15803D */
-    --color-warning:      180 112   0;  /* #B47000 */
-    --shadow-card: 0 2px 12px rgba(0,0,0,0.08);
-    --shadow-glow: 0 0 16px rgba(208,41,54,0.08);
+    --color-secondary:    245 247 252;  /* #F5F7FC */
+    --color-success:       22 132  70;  /* #168446 */
+    --color-warning:      172 104   0;  /* #AC6800 */
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06);
+    --shadow-card-hover: 0 4px 8px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.1);
+    --shadow-glow: 0 0 20px rgba(208,41,54,0.10);
+    --surface-raised: 255 255 255;
+    --surface-sunken: 238 242 250;
   }
 
   /* ── MIDNIGHT BLUE ─────────────────────────────────── */
   .theme-midnight-blue {
-    --color-background:   15  23  42;   /* #0F172A */
-    --color-panel:        30  41  59;   /* #1E293B */
-    --color-border:       51  65  85;   /* #334155 */
+    --color-background:   10  16  33;   /* #0A1021 */
+    --color-panel:        18  28  52;   /* #121C34 */
+    --color-border:       40  56  90;   /* #28385A */
     --color-text-primary: 248 250 252;  /* #F8FAFC */
-    --color-text-muted:   148 163 184;  /* #94A3B8 */
+    --color-text-muted:   140 158 186;  /* #8C9EBA */
     --color-accent:        56 189 248;  /* #38BDF8 */
-    --color-secondary:     71  85 105;  /* #475569 */
+    --color-secondary:     60  80 115;  /* #3C5073 */
     --color-success:       52 211 153;  /* #34D399 */
     --color-warning:      251 191  36;  /* #FBBF24 */
-    --shadow-card: 0 4px 24px rgba(0,0,0,0.45);
-    --shadow-glow: 0 0 20px rgba(56,189,248,0.12);
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.35);
+    --shadow-card-hover: 0 4px 12px rgba(0,0,0,0.5), 0 20px 48px rgba(0,0,0,0.4);
+    --shadow-glow: 0 0 24px rgba(56,189,248,0.15);
+    --surface-raised: 26 40 68;
+    --surface-sunken: 8 12 24;
   }
 
   /* ── BASE STYLES ───────────────────────────────────── */
   html {
     scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
     @apply bg-background text-text-primary font-body antialiased;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    transition: background-color 0.35s ease, color 0.35s ease;
   }
 
   /* Override h1–h6 from global rule so pages can control casing individually */
@@ -81,25 +92,21 @@
 
   /* ── SCROLLBAR STYLING ─────────────────────────────── */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
     background: rgb(var(--color-border));
-    border-radius: 3px;
+    border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgb(var(--color-text-muted) / 0.6);
+    background: rgb(var(--color-text-muted) / 0.5);
   }
 
-  /* ── SELECT OPTION FIX ─────────────────────────────── */
-  option {
-    background-color: rgb(var(--color-panel));
-    color: rgb(var(--color-text-primary));
-  }
+
 
   /* ── PRINT OVERRIDES ───────────────────────────────── */
   @media print {
@@ -121,6 +128,9 @@
   .card-shadow {
     box-shadow: var(--shadow-card);
   }
+  .card-shadow-hover {
+    box-shadow: var(--shadow-card-hover);
+  }
 
   /* Accent glow */
   .glow-accent {
@@ -131,4 +141,174 @@
   .separator {
     @apply w-full h-px bg-border;
   }
+
+  /* Surface variants */
+  .surface-raised {
+    background-color: rgb(var(--surface-raised));
+  }
+  .surface-sunken {
+    background-color: rgb(var(--surface-sunken));
+  }
+
+  /* Premium card style */
+  .card-premium {
+    @apply bg-panel border border-border rounded-2xl;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+  }
+  .card-premium:hover {
+    box-shadow: var(--shadow-card-hover);
+    @apply -translate-y-0.5 border-accent/30;
+  }
+}
+
+
+/* ── PRINT STYLES ─────────────────────────────────────── */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    box-sizing: border-box !important;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #1e293b !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Hide the sidebar and topbar wrappers */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* The outermost shell div — remove flex/overflow constraints */
+  body > #__next > div {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  /* The inner layout row (flex row with sidebar + content) */
+  body > #__next > div > div.relative {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* The right column (topbar + main) */
+  body > #__next > div > div.relative > div.flex.flex-col {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* The main element */
+  #print-main {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Background ambient orbs — hide */
+  .fixed.inset-0.pointer-events-none {
+    display: none !important;
+  }
+
+  /* Cards — white bg */
+  .rounded-2xl, .rounded-3xl, .rounded-xl {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Text */
+  h1, h2, h3, h4, p, span, td, th, div, li {
+    color: #1e293b !important;
+  }
+  /* Muted text */
+  .text-slate-400, .text-slate-500, [class*="text-text-muted"] {
+    color: #64748b !important;
+  }
+
+  /* Gradient heading → plain dark text, not black box */
+  .bg-clip-text,
+  .text-transparent {
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+    -webkit-text-fill-color: #1e293b !important;
+    background-image: none !important;
+    color: #1e293b !important;
+  }
+
+  /* Dark slate backgrounds → white */
+  [class*="bg-slate-9"],
+  [class*="bg-slate-8"],
+  [class*="bg-panel"],
+  .dark\:bg-slate-900,
+  .dark\:bg-slate-800 {
+    background: #ffffff !important;
+  }
+
+  /* Preserve inline colored styles (status badges, border accents) */
+  [style*="background:"],
+  [style*="background :"],
+  [style*="color:"],
+  [style*="color :"] {
+    -webkit-print-color-adjust: exact !important;
+  }
+
+  /* Grid — keep multi-column layout */
+  .grid { display: grid !important; }
+  .lg\:grid-cols-4 { grid-template-columns: repeat(4, 1fr) !important; }
+  .lg\:grid-cols-3 { grid-template-columns: repeat(3, 1fr) !important; }
+  .lg\:grid-cols-2, .grid-cols-2 { grid-template-columns: repeat(2, 1fr) !important; }
+  .lg\:col-span-2 { grid-column: span 2 !important; }
+
+  /* Spacing reductions for A4 */
+  .gap-6 { gap: 8px !important; }
+  .gap-4 { gap: 6px !important; }
+  .p-6   { padding: 10px !important; }
+  .p-5   { padding: 8px !important; }
+  .pb-10, .mb-6, .mb-8 { margin-bottom: 8px !important; padding-bottom: 8px !important; }
+
+  /* Font sizes — scale down for A4 */
+  .text-\[32px\] { font-size: 18px !important; }
+  .text-2xl      { font-size: 14px !important; }
+
+  /* Chart containers — fixed height so they don't overflow */
+  .recharts-responsive-container,
+  .recharts-wrapper {
+    height: 180px !important;
+    min-height: 0 !important;
+  }
+  .min-h-\[240px\],
+  .min-h-\[260px\] {
+    min-height: 180px !important;
+  }
+
+  /* Tables */
+  table { border-collapse: collapse !important; width: 100% !important; }
+  th, td {
+    border: 1px solid #e2e8f0 !important;
+    padding: 4px 8px !important;
+    font-size: 10px !important;
+    color: #1e293b !important;
+  }
+
+  /* Hide export/action buttons */
+  button { display: none !important; }
 }

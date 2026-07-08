@@ -22,10 +22,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Layout */}
       <div className="relative z-10 flex w-full h-full">
-        <Sidebar />
+        <div className="print:hidden"><Sidebar /></div>
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-          <Topbar />
-          <main className="flex-1 overflow-y-auto p-6 no-scrollbar">
+          <div className="print:hidden"><Topbar /></div>
+          <main id="print-main" className="flex-1 overflow-y-auto p-6 no-scrollbar print:overflow-visible print:p-0">
             {children}
           </main>
         </div>

@@ -42,7 +42,38 @@ export default function RootLayout({
             </AuthGuard>
           </Providers>
         </ThemeProvider>
-        <Toaster position="bottom-right" toastOptions={{ className: "font-body text-sm font-semibold rounded-xl bg-panel border border-border text-text-primary shadow-2xl" }} />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              fontFamily: "inherit",
+              fontSize: "13px",
+              fontWeight: 600,
+              borderRadius: "12px",
+              padding: "12px 16px",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+              maxWidth: "420px",
+            },
+            success: {
+              style: {
+                background: "#0f4c35",
+                color: "#ffffff",
+                border: "1px solid #1a7a52",
+              },
+              iconTheme: { primary: "#4ade80", secondary: "#0f4c35" },
+            },
+            error: {
+              style: {
+                background: "#7f1d1d",
+                color: "#ffffff",
+                border: "1px solid #b91c1c",
+              },
+              iconTheme: { primary: "#f87171", secondary: "#7f1d1d" },
+              duration: 6000,
+            },
+          }}
+        />
       </body>
     </html>
   );

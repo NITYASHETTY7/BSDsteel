@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import {
-  ArrowLeft, Edit, ArrowDownCircle, ArrowUpCircle,
+  ArrowLeft, Edit2, ArrowDownCircle, ArrowUpCircle,
   Layers, Warehouse, Package, Hash, Ruler, Scale,
-  CheckCircle, AlertTriangle, Clock, RefreshCw
+  CheckCircle, AlertTriangle, Clock, RefreshCw, TrendingDown,
+  Activity, BoxSelect, Boxes
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import {
@@ -15,502 +16,488 @@ import {
 } from "@/hooks/useInventory";
 import SlidePanel from "@/components/ui/SlidePanel";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { StackedPlateBar } from "@/components/inventory/StackedPlateBar";
+import { api } from "@/lib/api";
 
-const TXN_COLORS: Record<string, { bg: string; text: string; border: string; icon: any }> = {
-  inward:        { bg: "rgba(61,122,107,0.12)",  text: "#3D7A6B", border: "rgba(61,122,107,0.3)",  icon: ArrowDownCircle },
-  outward:       { bg: "rgba(208,41,54,0.12)",   text: "#D02936", border: "rgba(208,41,54,0.3)",   icon: ArrowUpCircle },
-  adjustment:    { bg: "rgba(244,166,35,0.12)",  text: "#F4A623", border: "rgba(244,166,35,0.3)",  icon: RefreshCw },
-  opening_stock: { bg: "rgba(74,144,226,0.12)",  text: "#4A90E2", border: "rgba(74,144,226,0.3)",  icon: Layers },
+// ── Transaction type config ───────────────────────────────────────────────────
+const TXN_CFG: Record<string, { bg: string; text: string; border: string; icon: any; label: string }> = {
+  inward:        { bg: "rgba(52,168,120,0.12)",  text: "#34A878", border: "rgba(52,168,120,0.3)",  icon: ArrowDownCircle, label: "Inward"        },
+  outward:       { bg: "rgba(208,41,54,0.12)",   text: "#D02936", border: "rgba(208,41,54,0.3)",   icon: ArrowUpCircle,   label: "Outward"       },
+  adjustment:    { bg: "rgba(244,166,35,0.12)",  text: "#F4A623", border: "rgba(244,166,35,0.3)",  icon: RefreshCw,       label: "Adjustment"    },
+  opening_stock: { bg: "rgba(99,102,241,0.12)",  text: "#6366F1", border: "rgba(99,102,241,0.3)",  icon: Layers,          label: "Opening Stock" },
 };
 
-function InputField({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+// ── Reusable form fields ──────────────────────────────────────────────────────
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-[10px] text-text-muted uppercase tracking-widest font-bold">{label}</label>
-      <input
-        {...props}
-        className="w-full bg-background border border-border rounded-lg px-3.5 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all placeholder:text-text-muted/40"
-      />
+      <label className="block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">{label}</label>
+      {children}
     </div>
   );
+}
+
+const inputCls = "w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600";
+
+function InputField({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  return <Field label={label}><input {...props} className={inputCls} /></Field>;
 }
 
 function SelectField({ label, children, ...props }: { label: string } & React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <div className="space-y-1.5">
-      <label className="block text-[10px] text-text-muted uppercase tracking-widest font-bold">{label}</label>
-      <select
-        {...props}
-        className="w-full bg-background border border-border rounded-lg px-3.5 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all appearance-none"
-      >
-        {children}
-      </select>
-    </div>
+    <Field label={label}>
+      <select {...props} className={inputCls + " appearance-none cursor-pointer"}>{children}</select>
+    </Field>
   );
 }
 
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function SkuDetailPage() {
-  const params = useParams();
-  const router = useRouter();
-  const skuId = parseInt(params.skuId as string, 10);
+  const params  = useParams();
+  const router  = useRouter();
+  const skuId   = parseInt(params.skuId as string, 10);
   const { user } = useAuthStore();
 
-  const [isTxnPanelOpen, setIsTxnPanelOpen] = useState(false);
-  const [isEditPanelOpen, setIsEditPanelOpen] = useState(false);
-  const [txnError, setTxnError] = useState<string | null>(null);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<{ msg: string; type: "success" | "error" } | null>(null);
-  const [txnType, setTxnType] = useState("inward");
-  const [unitCost, setUnitCost] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
+  const [isTxnPanelOpen,  setIsTxnPanelOpen]  = useState(false);
+  const [isEditPanelOpen, setIsEditPanelOpen]  = useState(false);
+  const [txnError,   setTxnError]   = useState<string | null>(null);
+  const [editError,  setEditError]  = useState<string | null>(null);
+  const [toast,      setToast]      = useState<{ msg: string; ok: boolean } | null>(null);
+  const [txnType,    setTxnType]    = useState("inward");
+  const [unitCost,   setUnitCost]   = useState("");
+  const [isSaving,   setIsSaving]   = useState(false);
 
-  const showToast = (msg: string, type: "success" | "error" = "success") => {
-    setToastMessage({ msg, type });
-    setTimeout(() => setToastMessage(null), 3000);
+  const showToast = (msg: string, ok = true) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3500);
   };
 
-  const { data: sku, isLoading: skuLoading, refetch: refetchSku } = useSkuDetail(skuId);
-  const { data: ledger, isLoading: ledgerLoading } = useStockLedger(skuId);
-  const { data: transactions, isLoading: txnsLoading } = useTransactions({ sku_id: skuId });
-  const { data: warehouses } = useWarehouses();
-  const { mutate: createTxn, isPending: isTxnPending } = useCreateTransaction();
-  const { api } = require('@/lib/api');
+  const { data: sku,          isLoading: skuLoading,  refetch: refetchSku } = useSkuDetail(skuId);
+  const { data: ledger,       isLoading: ledgerLoading }  = useStockLedger(skuId);
+  const { data: transactions, isLoading: txnsLoading }    = useTransactions({ sku_id: skuId });
+  const { data: warehouses }                              = useWarehouses();
+  const { mutate: createTxn,  isPending: isTxnPending }   = useCreateTransaction();
 
-  const canEditSku  = user?.role !== "warehouse_staff";
-  const canRecordTxn = ["warehouse_staff", "operations", "management"].includes(user?.role || "");
+  const whName = (id: number) => warehouses?.find(w => w.id === id)?.name ?? `WH-${id}`;
 
+  const canEdit     = user?.role !== "warehouse_staff";
+  const canTransact = ["warehouse_staff", "operations", "management"].includes(user?.role ?? "");
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleCreateTxn = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setTxnError(null);
     const fd = new FormData(e.currentTarget);
-
     const payload: any = {
       sku_id:           skuId,
       warehouse_id:     parseInt(fd.get("warehouse_id") as string, 10),
       transaction_type: fd.get("transaction_type"),
       quantity:         parseFloat(fd.get("quantity") as string),
-      reference_note:   fd.get("reference_note") as string,
+      reference_note:   fd.get("reference_note") as string || undefined,
     };
-
     if (payload.transaction_type === "inward" || payload.transaction_type === "opening_stock") {
       payload.batch_number = fd.get("batch_number");
-      const uc = fd.get("unit_cost");
-      if (uc) payload.unit_cost = parseFloat((uc as string).replace(/,/g, ''));
+      const uc = fd.get("unit_cost") as string;
+      if (uc) payload.unit_cost = parseFloat(uc.replace(/,/g, ""));
     } else {
       payload.batch_id = parseInt(fd.get("batch_id") as string, 10);
     }
-
     createTxn(payload, {
-      onSuccess: () => { 
-        setIsTxnPanelOpen(false); 
-        showToast("Transaction recorded successfully."); 
-        setUnitCost(""); 
-      },
-      onError: (err: any) => setTxnError(err.response?.data?.detail || "Failed to record transaction"),
+      onSuccess: () => { setIsTxnPanelOpen(false); setUnitCost(""); showToast("Transaction recorded."); },
+      onError:   (err: any) => setTxnError(err.response?.data?.detail || "Failed to record transaction."),
     });
   };
 
   const handleEditSku = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setEditError(null);
-    setIsEditing(true);
+    setIsSaving(true);
     const fd = new FormData(e.currentTarget);
-    const updateData: any = {
-      thickness_mm: parseFloat(fd.get("thickness_mm") as string),
-      width_mm: parseFloat(fd.get("width_mm") as string),
-      grade: fd.get("grade") as string,
+    const body: any = {
+      thickness_mm:      parseFloat(fd.get("thickness_mm") as string),
+      width_mm:          parseFloat(fd.get("width_mm") as string),
+      grade:             fd.get("grade") as string,
       reorder_threshold: parseFloat(fd.get("reorder_threshold") as string),
     };
-    const lengthStr = fd.get("length_mm") as string;
-    if (lengthStr) updateData.length_mm = parseFloat(lengthStr);
-
+    const len = fd.get("length_mm") as string;
+    if (len) body.length_mm = parseFloat(len);
     try {
-      await api.patch(`/api/skus/${skuId}`, updateData);
+      await api.patch(`/api/skus/${skuId}`, body);
       showToast("SKU updated successfully.");
       setIsEditPanelOpen(false);
       refetchSku();
     } catch (err: any) {
       const d = err.response?.data?.detail;
-      setEditError(Array.isArray(d) ? d.map((x: any) => `${x.loc.at(-1)}: ${x.msg}`).join(", ") : d || "Failed to update SKU");
+      setEditError(Array.isArray(d) ? d.map((x: any) => `${x.loc?.at(-1)}: ${x.msg}`).join(", ") : d ?? "Failed to update SKU.");
     } finally {
-      setIsEditing(false);
+      setIsSaving(false);
     }
   };
 
-  if (skuLoading) {
-    return (
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-16 rounded-2xl" />
-        <div className="grid grid-cols-4 gap-4">
-          {[...Array(4)].map((_,i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
-        </div>
-        <Skeleton className="h-64 rounded-2xl" />
-      </div>
-    );
-  }
+  // ── Loading ───────────────────────────────────────────────────────────────
+  if (skuLoading) return (
+    <div className="p-6 space-y-4 animate-pulse">
+      <Skeleton className="h-20 rounded-3xl" />
+      <div className="grid grid-cols-4 gap-4">{[...Array(4)].map((_,i) => <Skeleton key={i} className="h-28 rounded-3xl" />)}</div>
+      <Skeleton className="h-40 rounded-3xl" />
+      <Skeleton className="h-64 rounded-3xl" />
+    </div>
+  );
 
-  if (!sku) return <div className="p-6 text-text-primary">SKU not found.</div>;
+  if (!sku) return (
+    <div className="flex flex-col items-center justify-center py-32 text-slate-400">
+      <Package className="w-12 h-12 mb-3 opacity-30" />
+      <p className="font-bold uppercase tracking-widest text-sm">SKU not found</p>
+    </div>
+  );
 
-  const maxBatchQty = ledger?.batches.reduce((max, b) => Math.max(max, Number(b.quantity_on_hand)), 0) || 100;
-  const vizMax = maxBatchQty > 0 ? maxBatchQty * 1.2 : 100;
-  
-  const stock = Number(sku.total_stock);
+  // ── Derived values ────────────────────────────────────────────────────────
+  const stock     = Number(sku.total_stock);
   const threshold = Number(sku.reorder_threshold);
-  const stockStatus = stock < threshold ? "critical"
-    : stock <= threshold * 1.2 ? "warning" : "healthy";
+  const pct       = Math.round((stock / Math.max(threshold, 1)) * 100);
+  const barPct    = Math.min((stock / Math.max(threshold * 2, 1)) * 100, 100);
 
-  const statusConfig = {
-    critical: { label: "Low Stock",  color: "#D02936", bg: "rgba(208,41,54,0.1)",  icon: AlertTriangle },
-    warning:  { label: "Marginal",   color: "#F4A623", bg: "rgba(244,166,35,0.1)", icon: Clock },
-    healthy:  { label: "Healthy",    color: "#3D7A6B", bg: "rgba(61,122,107,0.1)", icon: CheckCircle },
-  }[stockStatus];
+  const status =
+    stock < threshold         ? "low"     :
+    stock <= threshold * 1.2  ? "marginal": "healthy";
+
+  const STATUS = {
+    low:      { label: "Low Stock", color: "#EF4444", bg: "rgba(239,68,68,0.1)",    ring: "rgba(239,68,68,0.25)",   icon: AlertTriangle },
+    marginal: { label: "Marginal",  color: "#F59E0B", bg: "rgba(245,158,11,0.1)",   ring: "rgba(245,158,11,0.25)",  icon: Clock },
+    healthy:  { label: "Healthy",   color: "#10B981", bg: "rgba(16,185,129,0.1)",   ring: "rgba(16,185,129,0.25)",  icon: CheckCircle },
+  }[status];
+
+  const vizMax = (ledger?.batches.reduce((m, b) => Math.max(m, Number(b.quantity_on_hand)), 0) || 1) * 1.2;
+
 
   return (
-    <div className="flex flex-col min-h-full pb-8 gap-6">
+    <div className="flex flex-col min-h-full pb-10 gap-6">
 
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.push("/inventory")}
-          className="p-2.5 bg-panel border border-border text-text-muted hover:text-text-primary hover:border-border/80 rounded-xl transition-all"
-        >
+      {/* ── Header ── */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <button onClick={() => router.push("/inventory")}
+          className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 shadow-sm hover:shadow transition-all">
           <ArrowLeft className="w-4 h-4" />
         </button>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-display font-bold uppercase tracking-widest text-text-primary">
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
               {sku.sku_code}
             </h1>
-            <span
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest"
-              style={{ background: statusConfig.bg, color: statusConfig.color }}
-            >
-              <statusConfig.icon className="w-3 h-3" />
-              {statusConfig.label}
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm"
+              style={{ background: STATUS.bg, color: STATUS.color, boxShadow: `0 0 0 1px ${STATUS.ring}` }}>
+              <STATUS.icon className="w-3 h-3" />
+              {STATUS.label}
             </span>
           </div>
-          <p className="text-text-muted text-sm mt-0.5 capitalize">
-            {sku.product_type.replace(/_/g, " ")} &nbsp;·&nbsp; {sku.thickness_mm}mm × {sku.width_mm}mm &nbsp;·&nbsp; Grade {sku.grade}
+          <p className="text-slate-400 dark:text-slate-500 text-sm mt-0.5 capitalize font-medium">
+            {sku.product_type.replace(/_/g, " ")}
+            <span className="mx-2 text-slate-300 dark:text-slate-700">·</span>
+            {sku.thickness_mm}mm × {sku.width_mm}mm
+            <span className="mx-2 text-slate-300 dark:text-slate-700">·</span>
+            Grade {sku.grade}
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          {canEditSku && (
-            <button
-              onClick={() => setIsEditPanelOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-panel border border-border text-text-primary font-bold text-xs uppercase tracking-widest rounded-xl hover:border-white/30 transition-all"
-            >
-              <Edit className="w-4 h-4" /> Edit SKU
+        <div className="flex items-center gap-2.5">
+          {canEdit && (
+            <button onClick={() => setIsEditPanelOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs uppercase tracking-widest shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600 transition-all">
+              <Edit2 className="w-3.5 h-3.5" /> Edit SKU
             </button>
           )}
-          {canRecordTxn && (
-            <button
-              onClick={() => setIsTxnPanelOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-accent text-white font-bold text-xs uppercase tracking-widest rounded-xl hover:bg-accent/90 shadow-md shadow-accent/20 transition-all"
-            >
+          {canTransact && (
+            <button onClick={() => setIsTxnPanelOpen(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent text-white font-bold text-xs uppercase tracking-widest shadow-lg shadow-accent/25 hover:shadow-accent/40 hover:bg-accent/90 active:scale-95 transition-all">
               <ArrowDownCircle className="w-4 h-4" /> Record Transaction
             </button>
           )}
         </div>
       </div>
 
-      {/* KPI Strip */}
+      {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { icon: Package,   label: "Total Stock",       value: `${Number(sku.total_stock)} ${sku.unit_of_measure}`,   color: "#4A90E2" },
-          { icon: Layers,    label: "Reorder Threshold", value: `${Number(sku.reorder_threshold)} ${sku.unit_of_measure}`, color: "#F4A623" },
-          { icon: Ruler,     label: "Dimensions",        value: `${sku.thickness_mm} × ${sku.width_mm}mm`,    color: "#3D7A6B" },
-          { icon: Hash,      label: "Grade / Standard",  value: sku.grade,                                      color: "#A78BFA" },
-        ].map(({ icon: Icon, label, value, color }) => (
-          <div key={label} className="bg-panel border border-border rounded-2xl p-4 card-shadow">
-            <div className="flex items-center gap-2 mb-2">
-              <Icon className="w-4 h-4" style={{ color }} />
-              <span className="text-[10px] text-text-muted uppercase tracking-widest font-bold">{label}</span>
+          { icon: Boxes,   label: "Total Stock",       value: `${stock}`,          unit: sku.unit_of_measure, color: "#6366F1", bg: "rgba(99,102,241,0.08)"  },
+          { icon: TrendingDown, label: "Reorder Threshold", value: `${threshold}`, unit: sku.unit_of_measure, color: "#F59E0B", bg: "rgba(245,158,11,0.08)"  },
+          { icon: Ruler,   label: "Dimensions",        value: `${sku.thickness_mm} × ${sku.width_mm}`, unit: "mm", color: "#10B981", bg: "rgba(16,185,129,0.08)" },
+          { icon: Hash,    label: "Grade / Standard",  value: sku.grade,           unit: "",             color: "#8B5CF6", bg: "rgba(139,92,246,0.08)"  },
+        ].map(({ icon: Icon, label, value, unit, color, bg }) => (
+          <div key={label}
+            className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 shadow-sm hover:shadow-md transition-shadow group">
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ background: `radial-gradient(circle at top right, ${bg}, transparent 70%)` }} />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: bg }}>
+                  <Icon className="w-3.5 h-3.5" style={{ color }} />
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</span>
+              </div>
+              <p className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight leading-snug">
+                {value}
+                {unit && <span className="text-xs font-bold text-slate-400 ml-1">{unit}</span>}
+              </p>
             </div>
-            <p className="text-lg font-display font-bold text-text-primary">{value}</p>
           </div>
         ))}
       </div>
 
-      {/* Stock Progress */}
-      <div className="bg-panel border border-border rounded-2xl p-5 card-shadow">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-bold text-text-muted uppercase tracking-widest">Stock Level vs Reorder Threshold</span>
-          <span className="text-xs font-bold" style={{ color: statusConfig.color }}>
-            {Math.round((stock / Math.max(threshold, 1)) * 100)}% of threshold
-          </span>
+      {/* ── Stock Gauge ── */}
+      <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-slate-400" />
+            <span className="text-xs font-black uppercase tracking-widest text-slate-500">Stock vs Reorder Threshold</span>
+          </div>
+          <span className="text-sm font-extrabold" style={{ color: STATUS.color }}>{pct}% of threshold</span>
         </div>
-        <div className="h-2.5 w-full bg-border rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{
-              width: `${Math.min((stock / Math.max(threshold * 2, 1)) * 100, 100)}%`,
-              backgroundColor: statusConfig.color,
-            }}
-          />
+
+        <div className="relative h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+          {/* threshold marker */}
+          <div className="absolute top-0 bottom-0 w-0.5 bg-slate-300 dark:bg-slate-600 z-10" style={{ left: "50%" }} />
+          <div className="h-full rounded-full transition-all duration-700"
+            style={{ width: `${barPct}%`, background: `linear-gradient(90deg, ${STATUS.color}99, ${STATUS.color})` }} />
         </div>
-        <div className="flex justify-between text-[10px] text-text-muted mt-1.5">
+
+        <div className="flex justify-between text-[10px] font-semibold text-slate-400 mt-2">
           <span>0</span>
-          <span>Reorder @ {threshold} {sku.unit_of_measure}</span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full inline-block bg-slate-300 dark:bg-slate-600" />
+            Reorder @ {threshold} {sku.unit_of_measure}
+          </span>
           <span>{threshold * 2} {sku.unit_of_measure}</span>
         </div>
       </div>
 
-      {/* Stock Ledger — Batch Breakdown */}
-      <div className="bg-panel border border-border rounded-2xl p-6 card-shadow">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-8 h-8 rounded-lg bg-[#4A90E2]/10 border border-[#4A90E2]/20 flex items-center justify-center">
-            <Warehouse className="w-4 h-4 text-[#4A90E2]" />
+      {/* ── Batch Breakdown ── */}
+      <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 flex items-center justify-center">
+            <Warehouse className="w-4 h-4 text-indigo-500" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-text-primary uppercase tracking-widest">Stock Ledger — Batch Breakdown</h2>
-            <p className="text-text-muted text-xs">Multi-warehouse batch-wise inventory positions</p>
+            <h2 className="text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-widest">Stock Ledger — Batch Breakdown</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Multi-warehouse batch-wise inventory positions</p>
           </div>
         </div>
 
         {ledgerLoading ? (
-          <div className="space-y-2">{[...Array(3)].map((_,i) => <Skeleton key={i} className="h-12 rounded-xl" />)}</div>
+          <div className="p-6 space-y-2">{[...Array(3)].map((_,i) => <Skeleton key={i} className="h-12 rounded-xl" />)}</div>
         ) : !ledger?.batches.length ? (
-          <div className="text-center py-10 text-text-muted">
-            <Layers className="w-8 h-8 mx-auto mb-2 opacity-20" />
-            <p className="text-xs uppercase tracking-widest">No batches recorded for this SKU</p>
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+            <BoxSelect className="w-8 h-8 mb-2 opacity-30" />
+            <p className="text-xs font-bold uppercase tracking-widest">No batches recorded</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-border text-[10px] uppercase tracking-widest text-text-muted">
-                  <th className="pb-3 font-bold pr-4">Batch Number</th>
-                  <th className="pb-3 font-bold pr-4">Warehouse</th>
-                  <th className="pb-3 font-bold pr-4">Received Date</th>
-                  <th className="pb-3 font-bold text-right pr-4">Qty on Hand</th>
-                  <th className="pb-3 font-bold">Stock Visual</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ledger.batches.map(b => (
-                  <tr key={b.id} className="border-b border-border/50 hover:bg-white/[0.02] transition-colors">
-                    <td className="py-3.5 pr-4">
-                      <span className="font-mono font-bold text-sm text-text-primary bg-border/40 px-2 py-0.5 rounded">{b.batch_number}</span>
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 dark:bg-slate-800/50">
+              <tr>
+                {["Batch Number","Warehouse","Received Date","Qty on Hand","Allocation"].map(h => (
+                  <th key={h} className="px-6 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ledger.batches.map((b, i) => {
+                const qty = Number(b.quantity_on_hand);
+                const barW = Math.min((qty / vizMax) * 100, 100);
+                return (
+                  <tr key={b.id} className={`border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors ${i % 2 === 0 ? "" : "bg-slate-50/30 dark:bg-slate-800/20"}`}>
+                    <td className="px-6 py-4">
+                      <span className="font-mono font-bold text-sm text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                        {b.batch_number}
+                      </span>
                     </td>
-                    <td className="py-3.5 pr-4 text-sm text-text-muted font-mono">WH-{b.warehouse_id}</td>
-                    <td className="py-3.5 pr-4 text-sm text-text-muted">{format(new Date(b.received_date), "dd MMM yyyy")}</td>
-                    <td className="py-3.5 pr-4 text-right">
-                      <span className="font-mono font-bold text-sm text-text-primary">{Number(b.quantity_on_hand)}</span>
-                      <span className="text-text-muted text-xs ml-1">{sku.unit_of_measure}</span>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        <Warehouse className="w-3 h-3" />
+                        {whName(b.warehouse_id)}
+                      </span>
                     </td>
-                    <td className="py-3.5">
-                      <StackedPlateBar quantity={Number(b.quantity_on_hand)} maxQuantity={vizMax} />
+                    <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
+                      {format(new Date(b.received_date), "dd MMM yyyy")}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="font-mono font-extrabold text-base text-slate-900 dark:text-white">{qty}</span>
+                      <span className="text-xs text-slate-400 ml-1">{sku.unit_of_measure}</span>
+                    </td>
+                    <td className="px-6 py-4 w-40">
+                      <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${barW}%`, background: "linear-gradient(90deg,#6366F199,#6366F1)" }} />
+                      </div>
+                      <p className="text-[9px] text-slate-400 mt-1">{Math.round(barW)}% of max</p>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
 
-      {/* Transaction History */}
-      <div className="bg-panel border border-border rounded-2xl p-6 card-shadow">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-8 h-8 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center">
+
+      {/* ── Transaction Log ── */}
+      <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="w-8 h-8 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center">
             <Scale className="w-4 h-4 text-accent" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-text-primary uppercase tracking-widest">Transaction Log</h2>
-            <p className="text-text-muted text-xs">Full audit trail with user attribution and timestamps</p>
+            <h2 className="text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-widest">Transaction Log</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Full audit trail with user attribution and timestamps</p>
           </div>
         </div>
 
         {txnsLoading ? (
-          <div className="space-y-2">{[...Array(5)].map((_,i) => <Skeleton key={i} className="h-10 rounded-xl" />)}</div>
+          <div className="p-6 space-y-2">{[...Array(4)].map((_,i) => <Skeleton key={i} className="h-10 rounded-xl" />)}</div>
         ) : !transactions?.length ? (
-          <div className="text-center py-10 text-text-muted">
-            <Clock className="w-8 h-8 mx-auto mb-2 opacity-20" />
-            <p className="text-xs uppercase tracking-widest">No transactions recorded yet</p>
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+            <Clock className="w-8 h-8 mb-2 opacity-30" />
+            <p className="text-xs font-bold uppercase tracking-widest">No transactions yet</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-border text-[10px] uppercase tracking-widest text-text-muted sticky top-0 bg-panel z-10">
-                  <th className="pb-3 font-bold pr-4">Date / Time</th>
-                  <th className="pb-3 font-bold pr-4">Type</th>
-                  <th className="pb-3 font-bold text-right pr-4">Quantity</th>
-                  <th className="pb-3 font-bold pr-4">Batch</th>
-                  <th className="pb-3 font-bold pr-4">Warehouse</th>
-                  <th className="pb-3 font-bold pr-4">Recorded By</th>
-                  <th className="pb-3 font-bold">Reference</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map(t => {
-                  const cfg = TXN_COLORS[t.transaction_type] || TXN_COLORS.adjustment;
-                  const TxnIcon = cfg.icon;
-                  return (
-                    <tr key={t.id} className="border-b border-border/40 hover:bg-white/[0.02] transition-colors">
-                      <td className="py-3.5 pr-4 text-xs text-text-muted font-mono whitespace-nowrap">
-                        {format(new Date(t.created_at), "dd MMM yy, HH:mm")}
-                      </td>
-                      <td className="py-3.5 pr-4">
-                        <span
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest"
-                          style={{ background: cfg.bg, color: cfg.text, border: `1px solid ${cfg.border}` }}
-                        >
-                          <TxnIcon className="w-3 h-3" />
-                          {t.transaction_type.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td className={`py-3.5 pr-4 text-right font-mono font-bold text-sm ${Number(t.quantity) > 0 ? "text-success" : "text-critical"}`}>
-                        {Number(t.quantity) > 0 ? "+" : ""}{Number(t.quantity)} {sku.unit_of_measure}
-                      </td>
-                      <td className="py-3.5 pr-4 text-xs text-text-muted font-mono">{t.batch_id || "—"}</td>
-                      <td className="py-3.5 pr-4 text-xs text-text-muted font-mono">WH-{t.warehouse_id}</td>
-                      <td className="py-3.5 pr-4 text-xs text-text-muted">User #{t.performed_by_user_id}</td>
-                      <td className="py-3.5 text-xs text-text-muted">{t.reference_note || "—"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 dark:bg-slate-800/50">
+              <tr>
+                {["Date / Time","Type","Quantity","Batch","Warehouse","Recorded By","Reference"].map(h => (
+                  <th key={h} className="px-6 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.map((t, i) => {
+                const cfg = TXN_CFG[t.transaction_type] ?? TXN_CFG.adjustment;
+                const Icon = cfg.icon;
+                const qty = Number(t.quantity);
+                return (
+                  <tr key={t.id} className={`border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors ${i % 2 === 0 ? "" : "bg-slate-50/30 dark:bg-slate-800/20"}`}>
+                    <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400 font-mono whitespace-nowrap">
+                      {format(new Date(t.created_at), "dd MMM yy, HH:mm")}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider"
+                        style={{ background: cfg.bg, color: cfg.text, border: `1px solid ${cfg.border}` }}>
+                        <Icon className="w-3 h-3" />
+                        {cfg.label}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`font-mono font-extrabold text-sm ${qty >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
+                        {qty >= 0 ? "+" : ""}{qty} {sku.unit_of_measure}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 font-mono text-xs text-slate-500 dark:text-slate-400">{t.batch_id ?? "—"}</td>
+                    <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400">
+                      <span className="inline-flex items-center gap-1">
+                        <Warehouse className="w-3 h-3" />{whName(t.warehouse_id)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400">User #{t.performed_by_user_id}</td>
+                    <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400 font-mono">{t.reference_note ?? "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
 
-      {/* Transaction Panel */}
-      <SlidePanel
-        isOpen={isTxnPanelOpen}
-        onClose={() => setIsTxnPanelOpen(false)}
+      {/* ── Record Transaction Panel ── */}
+      <SlidePanel isOpen={isTxnPanelOpen} onClose={() => { setIsTxnPanelOpen(false); setTxnError(null); }}
         title="Record Transaction"
-        subtitle={`SKU: ${sku.sku_code} · Current stock: ${sku.total_stock} ${sku.unit_of_measure}`}
-      >
-        <form onSubmit={handleCreateTxn} className="space-y-5">
+        subtitle={`${sku.sku_code} · ${stock} ${sku.unit_of_measure} in stock`}>
+        <form onSubmit={handleCreateTxn} className="space-y-4">
           {txnError && (
-            <div className="p-3 bg-critical/10 border border-critical/30 text-critical text-xs rounded-xl font-medium">
+            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 text-xs font-semibold">
               {txnError}
             </div>
           )}
-
-          <SelectField label="Transaction Type" name="transaction_type" value={txnType}
-            onChange={e => setTxnType(e.target.value)}>
+          <SelectField label="Transaction Type" name="transaction_type" value={txnType} onChange={e => setTxnType(e.target.value)}>
             <option value="inward">Inward (Stock Receipt)</option>
             <option value="outward">Outward (Dispatch)</option>
             <option value="adjustment">Manual Adjustment</option>
             <option value="opening_stock">Opening Stock Import</option>
           </SelectField>
-
           <SelectField label="Warehouse" name="warehouse_id" required>
             <option value="">Select warehouse…</option>
             {warehouses?.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
           </SelectField>
-
           {(txnType === "inward" || txnType === "opening_stock") ? (
             <InputField label="Batch Number" name="batch_number" required type="text" placeholder="e.g. BATCH-2026-001" />
           ) : (
             <SelectField label="Select Batch" name="batch_id" required>
               <option value="">Select batch…</option>
               {ledger?.batches.map(b => (
-                <option key={b.id} value={b.id}>{b.batch_number} — {Number(b.quantity_on_hand)} {sku.unit_of_measure} available</option>
+                <option key={b.id} value={b.id}>{b.batch_number} — {Number(b.quantity_on_hand)} {sku.unit_of_measure}</option>
               ))}
             </SelectField>
           )}
-
-          <InputField
-            label={`Quantity (${sku.unit_of_measure})`}
-            name="quantity"
-            required
-            type="number"
-            step="0.0001"
-            placeholder={txnType === "outward" ? "-50.0 (negative for dispatch)" : "50.0"}
-          />
-
+          <InputField label={`Quantity (${sku.unit_of_measure})`} name="quantity" required type="number" step="0.0001"
+            placeholder={txnType === "outward" ? "-50.0 (negative for dispatch)" : "50.0"} />
           {(txnType === "inward" || txnType === "opening_stock") && (
-            <div className="space-y-1.5">
-              <label className="block text-[10px] text-text-muted uppercase tracking-widest font-bold">Unit Cost ₹ (optional)</label>
-              <input
-                type="text"
-                name="unit_cost"
-                value={unitCost}
+            <Field label="Unit Cost ₹ (optional)">
+              <input type="text" name="unit_cost" value={unitCost}
                 onChange={e => {
-                  let val = e.target.value.replace(/[^0-9.]/g, '');
-                  const parts = val.split('.');
-                  val = parts[0] + (parts.length > 1 ? '.' + parts[1] : '');
-                  const intPart = parts[0];
-                  const lastThree = intPart.slice(-3);
-                  const other = intPart.slice(0, -3);
-                  const fmtInt = other ? other.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + "," + lastThree : lastThree;
-                  setUnitCost(parts.length > 1 ? `${fmtInt}.${parts[1]}` : fmtInt);
+                  let v = e.target.value.replace(/[^0-9.]/g, "");
+                  const p = v.split(".");
+                  const last3 = p[0].slice(-3);
+                  const other = p[0].slice(0, -3);
+                  const fmt = other ? other.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + "," + last3 : last3;
+                  setUnitCost(p.length > 1 ? `${fmt}.${p[1]}` : fmt);
                 }}
-                placeholder="e.g. 4,500.00"
-                className="w-full bg-background border border-border rounded-lg px-3.5 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all placeholder:text-text-muted/40"
-              />
-            </div>
+                placeholder="e.g. 4,500.00" className={inputCls} />
+            </Field>
           )}
-
           <InputField label="Reference / PO Number" name="reference_note" type="text" placeholder="PO-2026-00142" />
-
           <div className="pt-2">
-            <button
-              type="submit"
-              disabled={isTxnPending}
-              className="w-full bg-accent text-white font-display font-bold uppercase tracking-widest py-3.5 rounded-xl hover:bg-accent/90 shadow-lg shadow-accent/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isTxnPending ? (
-                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Processing…</>
-              ) : (
-                <><ArrowDownCircle className="w-4 h-4" /> Confirm Transaction</>
-              )}
+            <button type="submit" disabled={isTxnPending}
+              className="w-full bg-accent text-white font-bold uppercase tracking-widest py-3.5 rounded-xl hover:bg-accent/90 shadow-lg shadow-accent/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-sm">
+              {isTxnPending
+                ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Processing…</>
+                : <><ArrowDownCircle className="w-4 h-4" /> Confirm Transaction</>}
             </button>
           </div>
         </form>
       </SlidePanel>
 
-      {/* Edit SKU Panel */}
-      <SlidePanel
-        isOpen={isEditPanelOpen}
-        onClose={() => setIsEditPanelOpen(false)}
-        title="Edit SKU Details"
-        subtitle={`SKU: ${sku.sku_code}`}
-      >
+      {/* ── Edit SKU Panel ── */}
+      <SlidePanel isOpen={isEditPanelOpen} onClose={() => { setIsEditPanelOpen(false); setEditError(null); }}
+        title="Edit SKU" subtitle={sku.sku_code}>
         <form onSubmit={handleEditSku} className="space-y-4">
           {editError && (
-            <div className="p-3 bg-critical/10 border border-critical/30 text-critical text-xs rounded-xl font-medium">
+            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 text-xs font-semibold">
               {editError}
             </div>
           )}
           <div className="grid grid-cols-2 gap-4">
             <InputField label="Thickness (mm)" name="thickness_mm" required type="number" step="0.01" defaultValue={sku.thickness_mm} />
-            <InputField label="Width (mm)" name="width_mm" required type="number" step="0.01" defaultValue={sku.width_mm} />
+            <InputField label="Width (mm)"     name="width_mm"     required type="number" step="0.01" defaultValue={sku.width_mm} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <InputField label="Length (mm)" name="length_mm" type="number" step="0.01" defaultValue={sku.length_mm || ""} placeholder="Optional" />
-            <InputField label="Grade" name="grade" required type="text" defaultValue={sku.grade} />
+            <InputField label="Length (mm)"    name="length_mm"    type="number" step="0.01" defaultValue={sku.length_mm ?? ""} placeholder="Optional" />
+            <InputField label="Grade"          name="grade"        required type="text" defaultValue={sku.grade} />
           </div>
           <InputField label="Reorder Threshold" name="reorder_threshold" required type="number" step="0.01" defaultValue={sku.reorder_threshold} />
-          
           <div className="pt-2">
-            <button
-              type="submit"
-              disabled={isEditing}
-              className="w-full bg-accent text-white font-display font-bold uppercase tracking-widest py-3.5 rounded-xl hover:bg-accent/90 shadow-lg shadow-accent/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isEditing ? "Saving..." : "Save Changes"}
+            <button type="submit" disabled={isSaving}
+              className="w-full bg-accent text-white font-bold uppercase tracking-widest py-3.5 rounded-xl hover:bg-accent/90 shadow-lg shadow-accent/20 transition-all disabled:opacity-50 text-sm">
+              {isSaving ? "Saving…" : "Save Changes"}
             </button>
           </div>
         </form>
       </SlidePanel>
 
-      {/* Toast */}
-      {toastMessage && (
-        <div className={`fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 animate-slide-up z-50 ${
-          toastMessage.type === "error" ? "bg-critical text-white" : "bg-success text-white"
-        }`}>
-          {toastMessage.type === "error" ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
-          {toastMessage.msg}
+      {/* ── Toast ── */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-5 py-3 rounded-2xl shadow-2xl text-white text-xs font-bold uppercase tracking-widest transition-all ${toast.ok ? "bg-emerald-600" : "bg-red-600"}`}>
+          {toast.ok ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+          {toast.msg}
         </div>
       )}
+
     </div>
   );
 }

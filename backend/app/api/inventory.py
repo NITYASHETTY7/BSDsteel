@@ -91,14 +91,11 @@ async def update_sku(sku_id: int, sku_in: SKUUpdate, db: AsyncSession = Depends(
         
     update_data = sku_in.dict(exclude_unset=True)
     
-    # Validation if thickness is updated
+    # Validation if thickness is updated — all product types: 1.6mm to 25mm
     if 'thickness_mm' in update_data:
-        pt = update_data.get('product_type', sku.product_type)
         val = update_data['thickness_mm']
-        if pt in ('hr_coil', 'hr_sheet') and not (1.6 <= val <= 25.0):
-             raise HTTPException(status_code=400, detail="HR coil/sheet thickness must be between 1.6 and 25mm")
-        elif pt == 'chequered_sheet' and not (2.0 <= val <= 10.0):
-             raise HTTPException(status_code=400, detail="Chequered sheet thickness must be between 2 and 10mm")
+        if not (1.6 <= val <= 25.0):
+            raise HTTPException(status_code=400, detail="Steel thickness must be between 1.6mm and 25mm")
 
     for field, value in update_data.items():
         setattr(sku, field, value)

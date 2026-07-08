@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Package, DollarSign, FileText, Settings, ChevronLeft, ChevronRight, Layers, LogOut } from "lucide-react";
+import { LayoutDashboard, Package, DollarSign, FileText, Settings, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
 import { useAuthStore, Role } from "@/store/authStore";
 
 const roleAccess: Record<Role, string[]> = {
@@ -15,10 +15,10 @@ const roleAccess: Record<Role, string[]> = {
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Inventory", href: "/inventory", icon: Package },
-  { name: "Receivables", href: "/receivables", icon: DollarSign },
-  { name: "Reports", href: "/reports", icon: FileText },
-  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Inventory",  href: "/inventory",  icon: Package },
+  { name: "Receivables",href: "/receivables", icon: DollarSign },
+  { name: "Reports",    href: "/reports",     icon: FileText },
+  { name: "Settings",   href: "/settings",    icon: Settings },
 ];
 
 export default function Sidebar() {
@@ -27,7 +27,7 @@ export default function Sidebar() {
   const { user, logout } = useAuthStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  
+
   const allowedItems = user ? roleAccess[user.role] || [] : [];
   const visibleNavItems = navItems.filter(item => allowedItems.includes(item.name));
 
@@ -37,103 +37,167 @@ export default function Sidebar() {
   };
 
   return (
-    <aside 
+    <aside
       className={`${
-        isCollapsed ? "w-[72px]" : "w-[230px]"
-      } bg-panel border-r border-border h-full flex flex-col transition-all duration-300 relative z-20 shrink-0 print:hidden`}
+        isCollapsed ? "w-[68px]" : "w-[224px]"
+      } h-full flex flex-col transition-all duration-300 ease-in-out relative z-20 shrink-0 print:hidden`}
+      style={{
+        background: "rgb(var(--color-panel))",
+        borderRight: "1px solid rgb(var(--color-border))",
+      }}
     >
-      {/* Logo Area */}
-      <div className={`flex items-center gap-3 px-4 h-[57px] border-b border-border shrink-0 overflow-hidden`}>
-        <div className="w-8 h-8 rounded-lg bg-white/5 border border-border flex items-center justify-center shrink-0 overflow-hidden">
-          <img src="/images/bsd-logo.webp" alt="BSD" className="w-6 h-6 object-contain" />
+      {/* ── Logo / Brand ── */}
+      <div className={`relative flex items-center h-[57px] shrink-0 overflow-hidden px-4 gap-3`}
+        style={{ borderBottom: "1px solid rgb(var(--color-border))" }}>
+        {/* Logo mark */}
+        <div className="w-8 h-8 rounded-lg bg-accent/10 border border-accent/25 flex items-center justify-center shrink-0 overflow-hidden">
+          <img src="/images/bsd-logo.webp" alt="BSD" className="w-5 h-5 object-contain" />
         </div>
+
         {!isCollapsed && (
-          <div className="overflow-hidden">
-            <p className="text-text-primary font-display font-bold text-sm uppercase tracking-wide truncate">BSD Steel</p>
-            <p className="text-text-muted text-[9px] uppercase tracking-widest truncate">Management Portal</p>
+          <div className="overflow-hidden min-w-0">
+            <p className="font-display font-bold text-[13px] uppercase tracking-widest text-text-primary leading-none truncate">
+              BSD Steel
+            </p>
+            <p className="text-[9px] uppercase tracking-[0.18em] text-text-muted mt-0.5 truncate">
+              Management Portal
+            </p>
           </div>
         )}
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 flex flex-col gap-1 mt-4 px-2 pb-4">
-        {/* Header + Collapse Button */}
-        <div className={`flex items-center mb-2 ${isCollapsed ? 'justify-center' : 'justify-between px-3'}`}>
+      {/* ── Navigation ── */}
+      <nav className="flex-1 flex flex-col overflow-hidden py-3 px-2">
+        {/* Section label + collapse button */}
+        <div className={`flex items-center mb-1 px-1 ${isCollapsed ? "justify-center" : "justify-between"}`}>
           {!isCollapsed && (
-            <p className="text-[9px] text-text-muted uppercase tracking-widest font-bold">Navigation</p>
+            <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-text-muted/60 px-2">
+              Navigation
+            </span>
           )}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1 rounded-md text-text-muted hover:bg-white/5 hover:text-text-primary transition-all duration-200"
-            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            className="p-1.5 rounded-md text-text-muted hover:text-text-primary transition-all duration-200"
+            style={{ background: "transparent" }}
+            onMouseEnter={e => (e.currentTarget.style.background = "rgb(var(--color-border)/0.4)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+            title={isCollapsed ? "Expand" : "Collapse"}
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            {isCollapsed
+              ? <ChevronRight className="w-3.5 h-3.5" />
+              : <ChevronLeft  className="w-3.5 h-3.5" />
+            }
           </button>
         </div>
-        {visibleNavItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-          const Icon = item.icon;
 
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              title={isCollapsed ? item.name : undefined}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative ${
-                isActive 
-                  ? "bg-accent text-white shadow-md shadow-accent/20" 
-                  : "text-text-muted hover:bg-white/5 hover:text-text-primary"
-              } ${isCollapsed ? "justify-center" : "justify-start"}`}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              {!isCollapsed && (
-                <span className="font-medium text-sm truncate">{item.name}</span>
-              )}
-            </Link>
-          );
-        })}
+        <div className="flex flex-col gap-0.5">
+          {visibleNavItems.map(item => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            const Icon = item.icon;
 
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                title={isCollapsed ? item.name : undefined}
+                className={`flex items-center gap-3 rounded-xl transition-all duration-200 group relative overflow-hidden
+                  ${isCollapsed ? "justify-center px-2 py-3" : "px-3 py-2.5"}
+                  ${isActive
+                    ? "text-white"
+                    : "text-text-muted hover:text-text-primary"
+                  }`}
+                style={isActive ? {
+                  background: "rgb(var(--color-accent))",
+                  boxShadow: "0 2px 12px rgba(208,41,54,0.30)",
+                } : {}}
+                onMouseEnter={e => {
+                  if (!isActive) e.currentTarget.style.background = "rgb(var(--color-border)/0.35)";
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) e.currentTarget.style.background = "";
+                }}
+              >
+                {/* Active indicator bar */}
+                {isActive && !isCollapsed && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-white/60 rounded-r-full" />
+                )}
+                <Icon className={`shrink-0 transition-transform duration-200 ${
+                  isActive ? "w-[17px] h-[17px]" : "w-4 h-4 group-hover:scale-105"
+                }`} />
+                {!isCollapsed && (
+                  <span className={`text-[13px] font-medium truncate ${isActive ? "font-semibold" : ""}`}>
+                    {item.name}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
       </nav>
 
-      {/* User Section at Bottom */}
+      {/* ── User Profile ── */}
       {user && (
-        <div className="px-3 pb-4 border-t border-border pt-3 relative">
+        <div className="px-2 pb-3 relative" style={{ borderTop: "1px solid rgb(var(--color-border))", paddingTop: "12px" }}>
           <button
             onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className={`w-full flex items-center bg-background/50 hover:bg-white/5 border border-transparent hover:border-border/30 rounded-lg px-3 py-2.5 transition-all text-left group ${
-              isCollapsed ? "justify-center px-1" : "gap-3"
+            className={`w-full flex items-center rounded-xl transition-all duration-200 text-left group ${
+              isCollapsed ? "justify-center p-2" : "gap-2.5 px-3 py-2.5"
             }`}
+            style={{ background: "transparent" }}
+            onMouseEnter={e => (e.currentTarget.style.background = "rgb(var(--color-border)/0.35)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
             title={isCollapsed ? user.full_name : undefined}
           >
-            <div className="w-7 h-7 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center text-[10px] font-bold text-accent shrink-0 group-hover:scale-105 transition-transform">
-              {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
+            {/* Avatar */}
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-transform duration-200 group-hover:scale-105"
+              style={{
+                background: "rgba(208,41,54,0.15)",
+                border: "1.5px solid rgba(208,41,54,0.35)",
+                color: "rgb(var(--color-accent))",
+              }}>
+              {user.full_name?.charAt(0)?.toUpperCase() || "U"}
             </div>
             {!isCollapsed && (
-              <div className="overflow-hidden flex-1">
-                <p className="text-text-primary font-semibold text-xs truncate">{user.full_name}</p>
-                <p className="text-text-muted text-[9px] uppercase tracking-widest truncate">{user.role?.replace('_', ' ')}</p>
+              <div className="overflow-hidden flex-1 min-w-0">
+                <p className="text-text-primary font-semibold text-[12px] truncate leading-none mb-0.5">
+                  {user.full_name}
+                </p>
+                <p className="text-[9px] uppercase tracking-[0.15em] text-text-muted truncate">
+                  {user.role?.replace(/_/g, " ")}
+                </p>
               </div>
             )}
           </button>
 
+          {/* Profile flyout */}
           {showProfileMenu && (
             <>
-              {/* Click outside backdrop */}
               <div className="fixed inset-0 z-30" onClick={() => setShowProfileMenu(false)} />
-              
-              {/* Flyout Bubble */}
-              <div className={`absolute bottom-full mb-2 bg-panel border border-border rounded-xl shadow-2xl z-40 p-2 animate-in fade-in slide-in-from-bottom-2 duration-200 ${
-                isCollapsed ? "left-3 w-44" : "left-3 w-[206px]"
-              }`}>
-                <div className="px-3 py-2 border-b border-border/50 mb-1">
+              <div
+                className={`absolute bottom-full mb-2 rounded-xl z-40 p-1.5 overflow-hidden
+                  ${isCollapsed ? "left-3 w-48" : "left-3 right-3"}`}
+                style={{
+                  background: "rgb(var(--color-panel))",
+                  border: "1px solid rgb(var(--color-border))",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+                  animation: "fadeIn 0.15s ease",
+                }}
+              >
+                <div className="px-3 py-2.5 mb-1" style={{ borderBottom: "1px solid rgb(var(--color-border)/0.5)" }}>
                   <p className="text-text-primary font-bold text-xs truncate">{user.full_name}</p>
-                  <p className="text-text-muted text-[8px] uppercase tracking-widest truncate">{user.role?.replace('_', ' ')}</p>
+                  <p className="text-[9px] uppercase tracking-[0.15em] text-text-muted truncate mt-0.5">
+                    {user.role?.replace(/_/g, " ")}
+                  </p>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-500/10 rounded-lg transition-colors uppercase tracking-widest"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-bold uppercase tracking-widest rounded-lg transition-colors"
+                  style={{ color: "#E11D48" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(225,29,72,0.08)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                 >
-                  <LogOut className="w-4 h-4 shrink-0" />
+                  <LogOut className="w-3.5 h-3.5 shrink-0" />
                   Sign Out
                 </button>
               </div>

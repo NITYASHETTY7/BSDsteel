@@ -3,6 +3,7 @@ import { useAuthStore } from '@/store/authStore';
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+  timeout: 5000,
 });
 
 // Request interceptor to add JWT token

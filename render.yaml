@@ -9,18 +9,12 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: bsdsteel-db
-          property: connectionString
+        value: postgresql+asyncpg://postgres.jjkilhyzebxjzwzppxbv:%23Bsdsteel%407.@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres
       - key: JWT_SECRET_KEY
-        generateValue: true
+        value: 8e5f4620634bec876feec393e194e984c7619a9df2f6c06d28c87cb162860945
       - key: JWT_ALGORITHM
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: 480
-
-databases:
-  # PostgreSQL Database
-  - name: bsdsteel-db
-    plan: free
-    databaseName: bsdsteel
+      - key: FRONTEND_URL
+        value: https://bsdpoc-hcmn.vercel.app

@@ -34,7 +34,7 @@ export function Select({ value, onChange, options, placeholder = "Select...", cl
   }, []);
 
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
+    <div className={`relative ${isOpen ? 'z-50' : 'z-10'} ${className}`} ref={dropdownRef}>
       {name && <input type="hidden" name={name} value={value} />}
       <button
         type="button"
